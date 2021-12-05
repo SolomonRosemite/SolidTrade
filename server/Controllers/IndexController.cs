@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using SolidTradeServer.Data.Dtos.HealthCheck;
 
 namespace SolidTradeServer.Controllers
 {
@@ -9,7 +10,7 @@ namespace SolidTradeServer.Controllers
         [HttpGet]
         public IActionResult GetCheck()
         {
-            return Ok("Test");
+            return Ok(new GetHealthCheckDto(Request.Query, Request.Headers));
         }
         
         [HttpGet("HealthCheck")]
