@@ -1,0 +1,43 @@
+name: Deploy Development
+
+on:
+  push:
+    # Sequence of patterns matched against refs/heads
+    branches:
+      # Push events on dev branch
+      - dev
+
+  pull_request_target:
+    branches: dev
+    types: [closed]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Copy repository contents via scp
+        uses: appleboy/scp-action@master
+        env:
+          HOST: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          PORT: ${{ secrets.PORT }}
+          KEY: ${{ secrets.SSHKEY }}
+        with:
+          source: "."
+          target: "/root/projects/SolidTrade-Dev/"
+
+      - name: Executing remote command
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.HOST }}
+          USERNAME: ${{ secrets.USERNAME }}
+          PORT: ${{ secrets.PORT }}
+          KEY: ${{ secrets.SSHKEY }}
+          script: |
+            cd /root/projects/SolidTrade-Dev/server
+            chmod +x /root/projects/SolidTrade-Dev/server/start.sh
+            /root/projects/SolidTrade-Dev/server/start.sh
