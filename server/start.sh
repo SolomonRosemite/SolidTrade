@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # path = "SolidTrade-Dev";
-dockername = "solidtrade-dev-server";
-port = 8007;
+dockername="solidtrade-dev-server";
+port=8007;
 
 if [ "$1" = "production" ]; then
 #   path = "SolidTrade";
-  dockername = "solidtrade-server";
-  port = 8008;
+  dockername="solidtrade-server";
+  port=8008;
 fi
 
 # cp /root/projects/Rose-Linode/env/$path/server/.env .
