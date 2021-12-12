@@ -8,7 +8,7 @@ if [ "$1" = "production" ]; then
   port=8008;
 fi
 
-python3 patch_appsettings.py '~/projects/Rose-Linode/env/SolidTrade/server/appsettings.json'
+python3 patch_appsettings.py '/root/projects/Rose-Linode/env/SolidTrade/server/appsettings.json'
 
 # Stop current docker image
 docker stop $(docker ps | awk '{split($2,image,":"); print $1, image[1]}' | awk -v image=$dockername '$2 == image {print $1}')
