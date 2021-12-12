@@ -1,8 +1,8 @@
 using System;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Hosting;
-using Serilog;
 using Serilog.Sinks.Elasticsearch;
+using Serilog;
 
 namespace SolidTradeServer
 {
@@ -23,8 +23,11 @@ namespace SolidTradeServer
                         .WriteTo.Elasticsearch(
                             new ElasticsearchSinkOptions(new Uri(context.Configuration["ElasticConfiguration:Uri"]))
                             {
+                                ModifyConnectionSettings = x =>
+                                    x.BasicAuthentication(context.Configuration["ElasticConfiguration:Username"], 
+                                        context.Configuration["ElasticConfiguration:Password"]),
                                 IndexFormat =
-                                    $"{context.Configuration["ElasticSearchApplicationName"]}-logs-{context.HostingEnvironment.EnvironmentName?.ToLower().Replace('.', '-')}-{DateTime.UtcNow:MM-yyyy}",
+                                    $"{context.Configuration["ElasticConfiguration:ApplicationName"]}-logs-{context.HostingEnvironment.EnvironmentName?.ToLower().Replace('.', '-')}-{DateTime.UtcNow:MM-yyyy}",
                                 AutoRegisterTemplate = true,
                                 NumberOfShards = 2,
                                 NumberOfReplicas = 1,
