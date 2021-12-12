@@ -15,8 +15,8 @@ docker stop $(docker ps | awk '{split($2,image,":"); print $1, image[1]}' | awk 
 if [ "$1" = "production" ]; 
 then
     cp '/root/projects/Rose-Linode/env/SolidTrade/server/appsettings.credentials.json' .
-    docker build -t $dockername . && docker run -it -d -p $port:80 $dockername && docker ps
+    docker build -t $dockername . --build-arg ASPNETCORE_ENVIRONMENT="--environment=Production" && docker run -it -d -p $port:80 $dockername && docker ps
 else
   cp '/root/projects/Rose-Linode/env/SolidTrade-Dev/server/appsettings.credentials.json' .
-  docker build -t $dockername . --build-arg ASPNETCORE_ENVIRONMENT=Development && docker run -it -d -p $port:80 $dockername && docker ps
+  docker build -t $dockername . --build-arg ASPNETCORE_ENVIRONMENT="--environment=Development" && docker run -it -d -p $port:80 $dockername && docker ps
 fi

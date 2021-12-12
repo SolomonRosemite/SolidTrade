@@ -15,6 +15,8 @@ FROM build AS publish
 RUN dotnet publish "SolidTradeServer.csproj" -c Release -o /app/publish
 
 FROM base AS final
+ARG ASPNETCORE_ENVIRONMENT
+
 WORKDIR /app
 COPY --from=publish /app/publish .
-ENTRYPOINT ["dotnet", "SolidTradeServer.dll"]
+ENTRYPOINT ["dotnet", "SolidTradeServer.dll", "$ASPNETCORE_ENVIRONMENT"]
