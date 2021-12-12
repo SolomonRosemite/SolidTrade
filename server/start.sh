@@ -18,5 +18,5 @@ then
     docker build --build-arg ENVIRONMENT=Production -t $dockername . && docker run -it -d -p $port:80 $dockername && docker ps
 else
   cp '/root/projects/Rose-Linode/env/SolidTrade-Dev/server/appsettings.credentials.json' .
-  docker build --build-arg ENVIRONMENT=Development -t $dockername . && docker run -it -d -p $port:80 $dockername && docker ps
+  docker build --build-arg ENVIRONMENT=Staging -t $dockername . && docker run -it -d -p $port:80 $dockername && docker ps
 fi
