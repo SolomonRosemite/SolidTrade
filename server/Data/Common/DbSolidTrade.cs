@@ -2,7 +2,6 @@
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.IdentityModel.Protocols;
 using SolidTradeServer.Data.Entities;
 using SolidTradeServer.Data.Entities.Common;
 
@@ -26,9 +25,6 @@ namespace SolidTradeServer.Data.Common
         public DbSet<KnockoutPosition> KnockoutPositions { get; set; }
         public DbSet<OngoingWarrantPosition> OngoingWarrantPositions { get; set; }
         public DbSet<OngoingKnockoutPosition> OngoingKnockoutPositions { get; set; }
-        public DbSet<WarrantDerivative> WarrantDerivatives { get; set; }
-        public DbSet<KnockoutDerivative> KnockoutDerivatives { get; set; }
-        public DbSet<AssetInfoSocieteGenerale> AssetInfosSocieteGenerale { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
