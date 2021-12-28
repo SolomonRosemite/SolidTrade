@@ -53,12 +53,20 @@ namespace SolidTradeServer.Controllers.WebSockets
             do
             {
                 var buffer = new byte[1024 * 4];
-                var failed = (await ReceiveMessageAsync(webSocket, buffer))
-                    .TryPickT1(out var err, out var result);
+                var successful = (await ReceiveMessageAsync(webSocket, buffer))
+                    .TryPickT0(out var result, out var otherErr);
 
-                if (failed)
+                if (!successful)
                 {
-                    await SendMessage(webSocket, new ResponseDto(-1, MessageType.MessageTypeUnspecified, err, false));
+                    var disconnected = await otherErr.Match(async invalidJsonError =>
+                    {
+                        await SendMessage(webSocket, new ResponseDto(-1, MessageType.MessageTypeUnspecified, invalidJsonError, false));
+                        return false;
+                    }, _ => Task.FromResult(true));
+
+                    if (disconnected)
+                        break;
+                    
                     continue;
                 }
                 
@@ -76,9 +84,11 @@ namespace SolidTradeServer.Controllers.WebSockets
                 var response = await HandleMessage(messageDto);
 
                 await SendMessage(webSocket, response);
-            } while (prevSocketReceiveResult?.CloseStatus == null);
+            } while (prevSocketReceiveResult is not null && prevSocketReceiveResult.CloseStatus == null);
 
-            await webSocket.CloseAsync(prevSocketReceiveResult.CloseStatus!.Value, prevSocketReceiveResult.CloseStatusDescription, CancellationToken.None);
+            if (prevSocketReceiveResult?.CloseStatus is not null)
+                await webSocket.CloseAsync(prevSocketReceiveResult.CloseStatus!.Value,
+                    prevSocketReceiveResult.CloseStatusDescription, CancellationToken.None);
         }
 
         private async Task<ResponseDto> HandleMessage(MessageDto message)
@@ -95,22 +105,18 @@ namespace SolidTradeServer.Controllers.WebSockets
             };
         }
 
-        private async Task<OneOf<(WebSocketReceiveResult, MessageDto), IEnumerable<InvalidJsonFormat>>> ReceiveMessageAsync(WebSocket webSocket,
+        private async Task<OneOf<(WebSocketReceiveResult, MessageDto), IEnumerable<InvalidJsonFormat>, ClientDisconnected>> ReceiveMessageAsync(WebSocket webSocket,
             byte[] buffer, WebSocketReceiveResult webSocketReceiveResult = null)
         {
             var socketResult = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), CancellationToken.None);
 
             if (socketResult.CloseStatus.HasValue)
-            {
-                // Todo: Implement exit here.
-            }
+                return new ClientDisconnected();
             
             var result = MessageDto.ToMessage(buffer);
 
             if (result.TryPickT1(out var invalidJsonFormat, out var messageDto))
-            {
                 return invalidJsonFormat.ToList();
-            }
 
             return (webSocketReceiveResult ?? socketResult, messageDto);
         }

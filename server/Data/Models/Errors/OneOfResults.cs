@@ -3,7 +3,6 @@ using SolidTradeServer.Data.Models.Errors.Common;
 
 namespace SolidTradeServer.Data.Models.Errors
 {
-    public class InvalidJsonFormat : BaseErrorModel
-    {
-    }
+    public class InvalidJsonFormat : BaseErrorModel { }
+    public class ClientDisconnected : BaseErrorModel { }
 }
