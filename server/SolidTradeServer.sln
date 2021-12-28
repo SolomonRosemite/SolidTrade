@@ -1,6 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SolidTradeServer", "SolidTradeServer.csproj", "{521B2DFB-8DF8-4E9F-9777-3E5524E8AF36}"
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31729.503
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SolidTradeServer", "SolidTradeServer.csproj", "{521B2DFB-8DF8-4E9F-9777-3E5524E8AF36}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -12,5 +15,11 @@ Global
 		{521B2DFB-8DF8-4E9F-9777-3E5524E8AF36}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{521B2DFB-8DF8-4E9F-9777-3E5524E8AF36}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{521B2DFB-8DF8-4E9F-9777-3E5524E8AF36}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {14EC3B8F-914D-4F8F-A0CD-893756C4F522}
 	EndGlobalSection
 EndGlobal

@@ -1,0 +1,5 @@
+# To learn more about .editorconfig see https://aka.ms/editorconfigdocs
+###############################
+[*.cs]
+dotnet_diagnostic.CS8524.severity = none
+dotnet_diagnostic.CS8509.severity = error
