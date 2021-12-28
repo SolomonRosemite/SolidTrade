@@ -7,10 +7,6 @@ on:
       # Push events on stable branch
       - stable
 
-  pull_request_target:
-    branches: stable
-    types: [closed]
-
   workflow_dispatch:
 
 jobs:
