@@ -23,6 +23,7 @@ jobs:
           PORT: ${{ secrets.PORT }}
           KEY: ${{ secrets.SSHKEY }}
         with:
+          rm: true
           source: "."
           target: "/root/projects/SolidTrade/"
 
@@ -34,7 +35,6 @@ jobs:
           PORT: ${{ secrets.PORT }}
           KEY: ${{ secrets.SSHKEY }}
           script: |
-            rm -r /root/projects/SolidTrade/server
             cd /root/projects/SolidTrade/server
             chmod +x /root/projects/SolidTrade/server/start.sh
             /root/projects/SolidTrade/server/start.sh 'production'
