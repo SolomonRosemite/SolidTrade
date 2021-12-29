@@ -1,34 +1,30 @@
 ﻿using Newtonsoft.Json;
 using SolidTradeServer.Data.Models.Enums;
+using SolidTradeServer.Data.Models.Errors.Base;
 
 namespace SolidTradeServer.Data.Dtos.Messaging
 {
     public class ResponseDto
     {
-        public ResponseDto(int id, MessageType messageType, object data, bool successful)
-        {
-            Id = id;
-            MessageType = messageType;
-            Data = data;
-            Successful = successful;
-        }
+        private ResponseDto() { }
 
-        public ResponseDto(MessageDto message, object data, bool successful)
-        {
-            Id = message.Id;
-            MessageType = (MessageType) (int)message.MessageType!;
-            Data = data;
-            Successful = successful;
-        }
-
-        public int Id { get; }
-        public object Data { get; }
-        public MessageType MessageType { get; }
-        public bool Successful { get; }
+        public static ResponseDto Success(MessageDto message, object data)
+            => Success(message.Id, message.MessageType, data);
         
-        public string ToJsonString()
-        {
-            return JsonConvert.SerializeObject(this, Formatting.None);
-        }
+        public static ResponseDto Success(int id, MessageType messageType, object data)
+            => new() {Id = id, MessageType = messageType, Data = data, Successful = true};
+
+        public static ResponseDto Failed(MessageDto message, IBaseErrorModel error)
+            => Failed(message.Id, message.MessageType, error);
+        public static ResponseDto Failed(int id, MessageType messageType, IBaseErrorModel error) 
+            => new() {Id = id, MessageType = messageType, Error = error, Successful = false};
+        
+        public int Id { get; private init; }
+        public object Data { get; private init; }
+        public IBaseErrorModel Error { get; private init; }
+        public MessageType MessageType { get; private init; }
+        public bool Successful { get; private init; }
+        
+        public string ToJsonString() => JsonConvert.SerializeObject(this, Formatting.None);
     }
 }

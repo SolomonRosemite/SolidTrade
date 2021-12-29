@@ -5,6 +5,13 @@
         MessageTypeUnspecified = 0, 
         GetUser,
         CreateUser,
-        GetWarrants,
+        UpdateUser,
+        DeleteUser,
+     
+        GetProduct, // By isin
+        
+        GetStock,
+        
+        GetWarrant,
     }
 }

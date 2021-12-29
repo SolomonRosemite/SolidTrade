@@ -7,6 +7,7 @@ using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Converters;
 using SolidTradeServer.Services;
+using SolidTradeServer.Services.Common;
 
 namespace SolidTradeServer
 {
@@ -23,9 +24,11 @@ namespace SolidTradeServer
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddTransient<AuthenticationService>();
+            services.AddTransient<SocketRequestHandler>();
+            
             services.AddTransient<UserService>();
             services.AddTransient<WarrantService>();
+            services.AddTransient<AuthenticationService>();
             
             services.AddSignalR();
             services.AddControllers();

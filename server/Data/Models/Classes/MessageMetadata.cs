@@ -1,9 +1,10 @@
-﻿namespace SolidTradeServer.Data.Models.Classes
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace SolidTradeServer.Data.Models.Classes
 {
     public class MessageMetadata
     {
-        public string ConnectionId { get; init; }
+        [Required]
         public string Token { get; init; }
-        public string Uid { get; init; }
     }
 }

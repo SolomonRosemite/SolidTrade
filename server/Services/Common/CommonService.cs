@@ -10,9 +10,9 @@ namespace SolidTradeServer.Services.Common
         {
             return await message.CastTo<TDto>()
                 .Match(
-                    async requestDto => new ResponseDto(message, await func(requestDto), true),
+                    async requestDto => ResponseDto.Success(message, await func(requestDto)),
                     async err => 
-                        await Task.Run(() => new ResponseDto(message, new { Error = err }, false)));
+                        await Task.Run(() => ResponseDto.Failed(message, err)));
         }
     }
 }

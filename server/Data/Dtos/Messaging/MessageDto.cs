@@ -6,6 +6,7 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OneOf;
+using SolidTradeServer.Data.Models.Annotations;
 using SolidTradeServer.Data.Models.Classes;
 using SolidTradeServer.Data.Models.Enums;
 using SolidTradeServer.Data.Models.Errors;
@@ -18,7 +19,7 @@ namespace SolidTradeServer.Data.Dtos.Messaging
         [Range(1, int.MaxValue, ErrorMessage = "The field {0} must be greater than {1}.")]
         public int Id { get; init; }
         
-        [Required]
+        [Required, ValidateObject]
         public MessageMetadata Metadata { get; init; }
 
         [Required]
@@ -28,28 +29,25 @@ namespace SolidTradeServer.Data.Dtos.Messaging
         [Required]
         public object Data { get; init; }
         
-        public OneOf<T, IEnumerable<InvalidJsonFormat>> CastTo<T>(bool runValidation = true)
+        public OneOf<T, InvalidJsonFormat> CastTo<T>(bool runValidation = true)
         {
             return ConvertToObject<T>(Data).Match(
                 deserializeObject =>
                 runValidation ? ValidateObject(deserializeObject) : deserializeObject,
-                formats => formats.ToList());
+                format => format);
         }
         
-        public static OneOf<MessageDto, IEnumerable<InvalidJsonFormat>> ToMessage(byte[] content)
+        public static OneOf<MessageDto, InvalidJsonFormat> ToMessage(byte[] content)
         {
             return ConvertToObject<MessageDto>(Encoding.UTF8.GetString(content)).Match(
-                ValidateObject, formats => formats.ToList());
+                ValidateObject, format => format);
         }
 
-        private static OneOf<T, IEnumerable<InvalidJsonFormat>> ConvertToObject<T>(object data)
+        private static OneOf<T, InvalidJsonFormat> ConvertToObject<T>(object data)
         {
             if (data is null)
             {
-                return new List<InvalidJsonFormat>
-                {
-                    new() { Title = "Json object was null" },
-                };
+                return new InvalidJsonFormat {Title = "Json object was null"};
             }
 
             if (data is JObject obj)
@@ -61,17 +59,14 @@ namespace SolidTradeServer.Data.Dtos.Messaging
             }
             catch (Exception e)
             {
-                return new List<InvalidJsonFormat>
+                return new InvalidJsonFormat
                 {
-                    new()
-                    {
-                        Title = "Json format invalid", Message = "Unable to process invalid json.", Exception = e
-                    }
+                    Title = "Json format invalid", Message = "Unable to process invalid json.", Exception = e
                 };
             }
         }
         
-        private static OneOf<T, IEnumerable<InvalidJsonFormat>> ValidateObject<T>(T deserializeObject)
+        private static OneOf<T, InvalidJsonFormat> ValidateObject<T>(T deserializeObject)
         {
             var validationResults = new List<ValidationResult>();
             var isValid = Validator.TryValidateObject(deserializeObject, new ValidationContext(deserializeObject),
@@ -83,7 +78,7 @@ namespace SolidTradeServer.Data.Dtos.Messaging
                     .Select(error => new InvalidJsonFormat
                     {
                         Title = "Validation error", Message = error.ErrorMessage
-                    }).ToList();
+                    }).First();
             }
 
             return deserializeObject;
