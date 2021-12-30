@@ -91,8 +91,8 @@ namespace SolidTradeServer.Services.Common
         {
             return message.MessageType switch
             {
-                MessageType.GetUser => await _userService.GetUser(message),
-                MessageType.CreateUser => await _userService.CreateUser(message),
+                // MessageType.GetUser => await _userService.GetUser(message),
+                // MessageType.CreateUser => await _userService.CreateUser(message),
                 MessageType.GetWarrant => await _warrantService.HandleGetWarrant(message),
                 MessageType.MessageTypeUnspecified => ResponseDto.Failed(message, new BadRequest
                 {

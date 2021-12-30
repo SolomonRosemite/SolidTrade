@@ -6,4 +6,5 @@ namespace SolidTradeServer.Data.Models.Errors
     public class ClientDisconnected : BaseErrorModel { }
     public class BadRequest : BaseErrorModel { }
     public class NotAuthenticated : BaseErrorModel { }
+    public class UnexpectedError : BaseErrorModel { }
 }

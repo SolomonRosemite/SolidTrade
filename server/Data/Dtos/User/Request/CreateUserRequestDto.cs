@@ -11,6 +11,7 @@ namespace SolidTradeServer.Data.Dtos.User.Request
         public string DisplayName { get; init; }
         
         [Required]
+        [EmailAddress]
         public string Email { get; init; }
         
         [Required]

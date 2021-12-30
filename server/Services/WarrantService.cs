@@ -12,7 +12,8 @@ namespace SolidTradeServer.Services
         public async Task<ResponseDto> HandleGetWarrant(MessageDto message)
         {
             Func<GetWarrantRequestDto, Task<GetWarrantResponseDto>> func = GetWarrant;
-            return await CommonService.HandleRequestMessage(message, func);
+            // return await CommonService.HandleRequestMessage(message, func);
+            return null;
         }
 
         private async Task<GetWarrantResponseDto> GetWarrant(GetWarrantRequestDto data)

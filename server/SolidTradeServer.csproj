@@ -32,4 +32,7 @@
     <ItemGroup>
       <None Include="C:\Users\Jesse\Dev\Projects\SolidTrade\server\.editorconfig" />
     </ItemGroup>
+    <ItemGroup>
+      <Compile Remove="Filters\ExceptionHandlerFilter.cs" />
+    </ItemGroup>
 </Project>

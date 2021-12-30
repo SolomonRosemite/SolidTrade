@@ -1,18 +1,15 @@
-﻿using System;
-using System.Threading.Tasks;
-using SolidTradeServer.Data.Dtos.Messaging;
+﻿using Microsoft.AspNetCore.Mvc;
+using OneOf;
 
 namespace SolidTradeServer.Services.Common
 {
     public static class CommonService
     {
-        public static async Task<ResponseDto> HandleRequestMessage<TResult, TDto>(MessageDto message, Func<TDto, Task<TResult>> func)
+        public static IActionResult MatchResult<T>(OneOf<T, ErrorResponseModel> value)
         {
-            return await message.CastTo<TDto>()
-                .Match(
-                    async requestDto => ResponseDto.Success(message, await func(requestDto)),
-                    async err => 
-                        await Task.Run(() => ResponseDto.Failed(message, err)));
+            return value.Match(
+                response => new ObjectResult(response),
+                err => new ObjectResult(err.Error) {StatusCode = (int) err.Code});
         }
     }
 }
