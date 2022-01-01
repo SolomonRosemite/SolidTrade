@@ -1,5 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using SolidTradeServer.Data.Entities.Common;
 
 namespace SolidTradeServer.Data.Entities
@@ -8,7 +8,7 @@ namespace SolidTradeServer.Data.Entities
     {
         public int PortfolioId { get; set; }
         public Portfolio Portfolio { get; set; }
-        public HistoricalPosition HistoricalPosition { get; set; }
+        public ICollection<HistoricalPosition> HistoricalPositions { get; set; }
         
         [Required]
         [MaxLength(32)]
