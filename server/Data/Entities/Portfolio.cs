@@ -1,10 +1,12 @@
 ﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using SolidTradeServer.Data.Entities.Common;
 
 namespace SolidTradeServer.Data.Entities
 {
     public class Portfolio : BaseEntity
     {
+        [Required]
         public User User { get; set; }
         
         public decimal Balance { get; set; }

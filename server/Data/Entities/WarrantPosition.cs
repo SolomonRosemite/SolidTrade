@@ -6,11 +6,13 @@ namespace SolidTradeServer.Data.Entities
 {
     public class WarrantPosition : BaseEntity
     {
+        [Required]
         public Portfolio Portfolio { get; set; }
         
-        [Column(TypeName = "char")]
-        [StringLength(12)]
+        [Required]
+        [MaxLength(12)]
         public string Isin { get; set; }
+        
         public float BuyInPrice { get; set; }
         public int NumberOfShares { get; set; }
     }

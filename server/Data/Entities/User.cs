@@ -10,26 +10,25 @@ namespace SolidTradeServer.Data.Entities
         public Portfolio Portfolio { get; set; }
         public HistoricalPosition HistoricalPosition { get; set; }
         
-        [Column(TypeName = "char")]
-        [StringLength(32)]
+        [Required]
+        [MaxLength(32)]
         public string Username { get; set; }
                 
-        [Column(TypeName = "char")]
-        [StringLength(32)]
+        [Required]
+        [MaxLength(32)]
         public string DisplayName { get; set; }
                 
-        [Column(TypeName = "char")]
-        [StringLength(255)]
+        [MaxLength(255)]
         public string ProfilePictureUrl { get; set; }
                 
-        [Column(TypeName = "char")]
-        [StringLength(64)]
+        [Required]
+        [MaxLength(64)]
         public string Email { get; set; }
                 
-        // [MaxLength(128)]
-        [Column(TypeName = "char")]
-        [StringLength(128)]
+        [Required]
+        [MaxLength(128)]
         public string Uid { get; set; }
+        
         public bool HasPublicPortfolio { get; set; }
     }
 }

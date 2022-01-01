@@ -8,13 +8,19 @@ namespace SolidTradeServer.Data.Entities
 {
     public class OngoingWarrantPosition : BaseEntity
     {
-        [Column(TypeName = "char")]
-        [StringLength(12)]
+        [Required]
+        public Portfolio Portfolio { get; set; }
+        
+        [Required]
+        public WarrantPosition CurrentWarrantPosition { get; set; }
+        
+        [Required]
+        [MaxLength(12)]
         public string Isin { get; set; }
         
+        [Required]
         public EnterOrExitPositionType Type { get; set; }
-        public Portfolio Portfolio { get; set; }
-        public WarrantPosition CurrentWarrantPosition { get; set; }
+        
         public float Price { get; set; }
     }
 }

@@ -1,15 +1,28 @@
-﻿using SolidTradeServer.Data.Entities.Common;
+﻿using System.ComponentModel.DataAnnotations;
+using SolidTradeServer.Data.Entities.Common;
 using SolidTradeServer.Data.Models.Enums;
 
 namespace SolidTradeServer.Data.Entities
 {
     public class HistoricalPosition : BaseEntity
     {
+        [Required]
         public PositionType PositionType { get; set; }
+        
+        [Required]
         public BuyOrSell BuyOrSell { get; set; }
+        
+        [Required]
         public float BuyInPrice { get; set; }
+        
+        [Required]
         public float Performance { get; set; }
+        
+        [Required]
         public int NumberOfShares { get; set; }
+        
+        [Required]
+        [MaxLength(12)]
         public string Isin { get; set; }
     }
 }
