@@ -1,11 +1,11 @@
 ﻿using System.Net;
 using SolidTradeServer.Data.Models.Errors.Base;
 
-namespace SolidTradeServer
+namespace SolidTradeServer.Data.Models.Errors.Common
 {
-    public class ErrorResponseModel
+    public class ErrorResponse
     {
-        public ErrorResponseModel(IBaseErrorModel error, HttpStatusCode code)
+        public ErrorResponse(IBaseErrorModel error, HttpStatusCode code)
         {
             Error = error;
             Code = code;

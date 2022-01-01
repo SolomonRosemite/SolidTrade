@@ -17,6 +17,10 @@ namespace SolidTradeServer.Controllers
             _userService = userService;
         }
 
+        [HttpPost]
+        public async Task<IActionResult> CreateUser([FromBody] CreateUserRequestDto dto)
+            => CommonService.MatchResult(await _userService.CreateUser(dto));
+        
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
             => CommonService.MatchResult(await _userService.GetUserById(id));
@@ -24,9 +28,16 @@ namespace SolidTradeServer.Controllers
         [HttpGet("{username}")]
         public async Task<IActionResult> GetByUsername(string username)
             => CommonService.MatchResult(await _userService.GetUserByUsername(username));
+        
+        [HttpPatch]
+        public async Task<IActionResult> UpdateUser([FromBody] UpdateUserDto dto)
+            => CommonService.MatchResult(await _userService.UpdateUser(dto));
 
-        [HttpPost]
-        public async Task<IActionResult> CreateUser([FromBody] CreateUserRequestDto dto)
-            => CommonService.MatchResult(await _userService.CreateUser(dto));
+        [HttpDelete]
+        public async Task<IActionResult> DeleteUser()
+            => CommonService.MatchResult(await _userService.DeleteUser(new DeleteUserRequestDto
+            {
+                Token = Request.Headers["Authorization"],
+            }));
     }
 }

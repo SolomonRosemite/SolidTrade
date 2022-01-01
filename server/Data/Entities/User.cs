@@ -6,6 +6,7 @@ namespace SolidTradeServer.Data.Entities
 {
     public class User : BaseEntity
     {
+        public int PortfolioId { get; set; }
         public Portfolio Portfolio { get; set; }
         public HistoricalPosition HistoricalPosition { get; set; }
         
@@ -24,6 +25,11 @@ namespace SolidTradeServer.Data.Entities
         [Column(TypeName = "char")]
         [StringLength(64)]
         public string Email { get; set; }
+                
+        // [MaxLength(128)]
+        [Column(TypeName = "char")]
+        [StringLength(128)]
+        public string Uid { get; set; }
         public bool HasPublicPortfolio { get; set; }
     }
 }

@@ -1,6 +1,6 @@
 ﻿namespace SolidTradeServer.Data.Dtos.User.Request
 {
-    public class GetUserRequestDto
+    public class UpdateUserDto
     {
         
     }

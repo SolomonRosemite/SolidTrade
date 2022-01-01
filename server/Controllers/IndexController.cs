@@ -1,8 +1,5 @@
-﻿using System.Net.WebSockets;
-using System.Threading.Tasks;
-using SolidTradeServer.Data.Dtos.HealthCheck;
+﻿using SolidTradeServer.Data.Dtos.HealthCheck;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.SignalR;
 
 namespace SolidTradeServer.Controllers
 {

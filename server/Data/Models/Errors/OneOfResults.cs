@@ -2,9 +2,8 @@
 
 namespace SolidTradeServer.Data.Models.Errors
 {
-    public class InvalidJsonFormat : BaseErrorModel { }
-    public class ClientDisconnected : BaseErrorModel { }
-    public class BadRequest : BaseErrorModel { }
     public class NotAuthenticated : BaseErrorModel { }
     public class UnexpectedError : BaseErrorModel { }
+    public class UserNotFound : BaseErrorModel { }
+    public class UserDeleteFailed : BaseErrorModel { }
 }

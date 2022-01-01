@@ -1,3 +1,7 @@
+using System;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
+using Google.Cloud.Firestore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
@@ -6,9 +10,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json;
+using Serilog;
+using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Filters;
 using SolidTradeServer.Services;
+using SolidTradeServer.Services.Common;
 using AuthenticationService = SolidTradeServer.Services.AuthenticationService;
 
 namespace SolidTradeServer
@@ -26,6 +33,8 @@ namespace SolidTradeServer
         // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddDbContext<DbSolidTrade>();
+            
             services.AddTransient<UserService>();
             services.AddTransient<WarrantService>();
             services.AddTransient<AuthenticationService>();
@@ -39,7 +48,7 @@ namespace SolidTradeServer
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger logger)
         {
             if (env.IsDevelopment())
             {
@@ -67,6 +76,16 @@ namespace SolidTradeServer
             {
                 endpoints.MapControllers();
             });
-        }
+            
+            FirebaseApp.Create(new AppOptions
+            {
+                Credential = GoogleCredential.FromFile(Configuration["FirebaseCredentials"]),
+            });
+            
+            Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", Configuration["FirebaseCredentials"]);
+            
+            CommonService.Firestore = FirestoreDb.Create(Configuration["FirebaseProjectId"]);
+            CommonService.Logger = logger;
+        }   
     }
 }

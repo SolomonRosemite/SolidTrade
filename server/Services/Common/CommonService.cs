@@ -1,15 +1,33 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Google.Cloud.Firestore;
+using Microsoft.AspNetCore.Mvc;
 using OneOf;
+using Serilog;
+using SolidTradeServer.Common;
+using SolidTradeServer.Data.Models.Errors;
+using SolidTradeServer.Data.Models.Errors.Common;
 
 namespace SolidTradeServer.Services.Common
 {
     public static class CommonService
     {
-        public static IActionResult MatchResult<T>(OneOf<T, ErrorResponseModel> value)
+        public static FirestoreDb Firestore { get; set; }
+        public static ILogger Logger { private get; set; }
+        
+        public static IActionResult MatchResult<T>(OneOf<T, ErrorResponse> value)
         {
             return value.Match(
                 response => new ObjectResult(response),
-                err => new ObjectResult(err.Error) {StatusCode = (int) err.Code});
+                err =>
+                {
+                    Logger.Error(Constants.LogMessageTemplate, err.Error);
+                    
+                    return new ObjectResult(new UnexpectedError
+                    {
+                        Title = err.Error.Title,
+                        UserFriendlyMessage = err.Error.UserFriendlyMessage,
+                        Message = err.Error.Message,
+                    }) {StatusCode = (int) err.Code};
+                });
         }
     }
 }
