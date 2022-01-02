@@ -10,9 +10,7 @@ namespace SolidTradeServer
     public static class Program
     {
         public static void Main(string[] args)
-        {
-            CreateHostBuilder(args).Build().Run();
-        }
+        => CreateHostBuilder(args).Build().Run();
 
         private static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
@@ -22,6 +20,7 @@ namespace SolidTradeServer
                     hostConfig.AddJsonFile("appsettings.json");
                     hostConfig.AddEnvironmentVariables();
                 })
+                // Todo: Change log format
                 .UseSerilog((context, configuration) =>
                 {
                     configuration.Enrich.FromLogContext()

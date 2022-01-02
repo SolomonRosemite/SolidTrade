@@ -18,8 +18,16 @@ namespace SolidTradeServer.Services
         public async Task<(bool, string)> AuthenticateUser(string token)
         {
             if (_configuration.GetValue<bool>("IsLocalDevelopment"))
-                return (true, _configuration["TestUserUid"]);
-
+            {
+                // When we are testing the api we just provide the uid in the Authorization header to authenticate.
+                try { await FirebaseAuth.DefaultInstance.GetUserAsync(token); }
+                catch
+                {
+                    return (false, null);
+                }
+                return (true, token);
+            }
+            
             try
             {
                 FirebaseToken decodedToken = await FirebaseAuth.DefaultInstance

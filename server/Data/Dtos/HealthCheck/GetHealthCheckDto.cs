@@ -8,7 +8,7 @@
             RequestHeaders = requestHeaders;
         }
 
-        public string Message { get; } = "Hey there👋";
+        public string Message => "Hey there👋";
         
         public object RequestParams { get; }
         public object RequestHeaders { get; }

@@ -39,7 +39,18 @@ namespace SolidTradeServer.Filters
                 return;
             }
 
-            var (successful, _) = await _authenticationService.AuthenticateUser(token);
+            if (token.ToString().Length < 7)
+            {
+                context.Result = new UnauthorizedObjectResult(new NotAuthenticated
+                {
+                    Title = "Invalid token",
+                    Message = "The token provided invalid.",
+                    UserFriendlyMessage = "Login failed. Please try again",
+                });
+                return;
+            }
+            
+            var (successful, uid) = await _authenticationService.AuthenticateUser(token.ToString()[7..]);
 
             if (!successful)
             {
@@ -51,6 +62,9 @@ namespace SolidTradeServer.Filters
                 });
                 return;
             }
+
+            // Set the uid header so that it can be picked up by controller 
+            request.Headers["_Uid"] = uid;
             
             await next();
         }

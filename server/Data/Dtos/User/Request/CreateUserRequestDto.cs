@@ -5,9 +5,6 @@ namespace SolidTradeServer.Data.Dtos.User.Request
     public class CreateUserRequestDto
     {
         [Required]
-        public string Uid { get; init; }
-        
-        [Required]
         [MinLength(3)]
         public string DisplayName { get; init; }
         

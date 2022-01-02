@@ -4,7 +4,9 @@ using System.Linq;
 using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
+using AutoMapper;
 using FirebaseAdmin.Auth;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using OneOf;
 using Serilog;
@@ -20,32 +22,35 @@ namespace SolidTradeServer.Services
 {
     public class UserService
     {
-        private readonly AuthenticationService _authService;
         private readonly ILogger _logger;
         private readonly DbSolidTrade _database;
+        private readonly IMapper _mapper;
         
-        public UserService(DbSolidTrade database, AuthenticationService authService, ILogger logger)
+        public UserService(DbSolidTrade database, ILogger logger, IMapper mapper)
         {
             _database = database;
-            _authService = authService;
             _logger = logger;
+            _mapper = mapper;
         }
 
-        public async Task<OneOf<User, ErrorResponse>> CreateUser(CreateUserRequestDto data)
+        public async Task<OneOf<UserResponseDto, ErrorResponse>> CreateUser(CreateUserRequestDto data, string uid)
         {
             var user = new User
             {
                 Email = data.Email,
-                Uid = data.Uid,
+                Uid = uid,
                 Username = data.Username,
                 DisplayName = data.DisplayName,
-                Portfolio = new Portfolio(),
+                Portfolio = new Portfolio
+                {
+                    Balance = 10000,
+                },
                 HistoricalPositions = new List<HistoricalPosition>(),
                 HasPublicPortfolio = true,
             };
 
-            var usernameTaken = await _database.Users.AnyAsync(u => u.Username == user.Username);
-            var userUidAlreadyInUse = await _database.Users.AnyAsync(u => u.Uid == user.Uid);
+            var usernameTaken = await AsyncEnumerable.AnyAsync(_database.Users, u => u.Username == user.Username);
+            var userUidAlreadyInUse = await AsyncEnumerable.AnyAsync(_database.Users, u => u.Uid == user.Uid);
 
             if (usernameTaken || userUidAlreadyInUse)
             {
@@ -76,35 +81,46 @@ namespace SolidTradeServer.Services
                     Exception = e,
                 }, HttpStatusCode.InternalServerError);
             }
-
-            return newUser.Entity;
+            
+            return _mapper.Map<UserResponseDto>(newUser.Entity);
         }
         
-        public async Task<OneOf<User, ErrorResponse>> GetUserById(int id)
+        public async Task<OneOf<UserResponseDto, ErrorResponse>> GetUserById(int id, string uid)
         {
             var user = await _database.Users.FindAsync(id);
 
-            if (user is not null)
-                return user;
-            
-            return new ErrorResponse(new UserNotFound
+            if (user is null)
             {
-                Title = "User not found",
-                Message = $"The user with id: {id} could not be found.",
-            }, HttpStatusCode.NotFound);
+                return new ErrorResponse(new UserNotFound
+                {
+                    Title = "User not found",
+                    Message = $"The user with id: {id} could not be found.",
+                }, HttpStatusCode.NotFound);
+            }
+            
+            var userResponse = _mapper.Map<UserResponseDto>(user);
+
+            // If request user is not owner of user hide private information.
+            if (user.Uid != uid)
+                userResponse.Email = null;
+
+            return userResponse;
         }
         
-        public async Task<OneOf<IEnumerable<User>, ErrorResponse>> GetUserByUsername(string username)
+        public async Task<OneOf<List<UserResponseDto>, ErrorResponse>> SearchUserByUsername(string username)
         {
-            // Todo: Check if this is case insensitive.
-            var users = await _database.Users.AsAsyncEnumerable()
-                .Where(u => u.Username.Contains(username))
+            var users = await _database.Users.AsQueryable()
+                .Where(u =>  EF.Functions.Like(u.Username, $"{username}%"))
                 .ToListAsync();
 
-            return users;
+            return users.Select(user =>
+            {
+                user.Email = null;
+                return _mapper.Map<UserResponseDto>(user);
+            }).ToList();
         }
         
-        public async Task<OneOf<User, ErrorResponse>> UpdateUser(UpdateUserDto dto)
+        public async Task<OneOf<UserResponseDto, ErrorResponse>> UpdateUser(UpdateUserDto dto, string uid)
         {
             if (dto.Username?.Length < 3 || dto.DisplayName?.Length < 3)
             {
@@ -113,17 +129,6 @@ namespace SolidTradeServer.Services
                     Title = "Username or DisplayName too short",
                     Message = "The DisplayName or and Username must at least be 3 characters long.",
                 }, HttpStatusCode.BadRequest);
-            }
-            
-            var (successful, uid) = await _authService.AuthenticateUser(dto.Token);
-
-            if (!successful)
-            {
-                return new ErrorResponse(new NotAuthenticated
-                {
-                    Title = "Invalid token",
-                    Message = "The token provided is expired or invalid.",
-                }, HttpStatusCode.Unauthorized);
             }
             
             var user = await _database.Users.FindAsync(dto.Id);
@@ -144,7 +149,7 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.Unauthorized);
             }
             
-            if (dto.Username is not null && await _database.Users.AnyAsync(u => u.Username == dto.Username))
+            if (dto.Username is not null && await AsyncEnumerable.AnyAsync(_database.Users, u => u.Username == dto.Username))
             {
                 return new ErrorResponse(new UserUpdateFailed
                 {
@@ -154,7 +159,7 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.Conflict);
             }
 
-            if (dto.Email is not null && await _database.Users.AnyAsync(u => u.Email == dto.Email))
+            if (dto.Email is not null && await AsyncEnumerable.AnyAsync(_database.Users, u => u.Email == dto.Email))
             {
                 return new ErrorResponse(new UserUpdateFailed
                 {
@@ -173,7 +178,7 @@ namespace SolidTradeServer.Services
             {
                 _database.Users.Update(user);
                 await _database.SaveChangesAsync();
-                return user;
+                return _mapper.Map<UserResponseDto>(user);
             }
             catch (Exception e)
             {
@@ -186,21 +191,9 @@ namespace SolidTradeServer.Services
             }
         }
 
-        public async Task<OneOf<DeleteUserResponseDto, ErrorResponse>> DeleteUser(DeleteUserRequestDto dto)
+        public async Task<OneOf<DeleteUserResponseDto, ErrorResponse>> DeleteUser(string uid)
         {
-            var (isAuthenticated, uid) = await _authService.AuthenticateUser(dto.Token);
-
-            if (!isAuthenticated)
-            {
-                return new ErrorResponse(new NotAuthenticated
-                {
-                    Title = "Authentication failed",
-                    Message = "User token invalid",
-                    UserFriendlyMessage = "User token invalid. Please try logging out then in again.",
-                }, HttpStatusCode.BadRequest);
-            }
-            
-            var user = await _database.Users.FirstOrDefaultAsync(u => u.Uid == uid);
+            var user = await AsyncEnumerable.FirstOrDefaultAsync(_database.Users, u => u.Uid == uid);
 
             if (user is null)
             {
@@ -232,10 +225,22 @@ namespace SolidTradeServer.Services
                 .Document($"users/{uid}")
                 .DeleteAsync();
 
-            _database.Users.Remove(user);
-            _database.SaveChanges();
-            _logger.Information($"User delete with id: {user.Id} was successful");
-
+            try
+            {
+                _database.Users.Remove(user);
+                await _database.SaveChangesAsync();
+                _logger.Information($"User delete with id: {user.Id} was successful");
+            }
+            catch (Exception e)
+            {
+                return new ErrorResponse(new UserDeleteFailed
+                {
+                    Title = "Could not delete user",
+                    Message = $"Could not delete user with id: {user.Id} from the database.",
+                    Exception = e,
+                }, HttpStatusCode.InternalServerError);
+            }
+            
             return new DeleteUserResponseDto { Successful = true };
         }
     }

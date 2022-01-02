@@ -7,9 +7,6 @@ namespace SolidTradeServer.Data.Dtos.User.Request
         [Required]
         public int Id { get; init; }
      
-        [Required]
-        public string Token { get; init; }
-     
         [EmailAddress]
         public string Email { get; init; }
         
