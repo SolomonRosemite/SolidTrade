@@ -5,9 +5,10 @@ namespace SolidTradeServer.Data.Dtos.User.Request
     public class CreateUserRequestDto
     {
         [Required]
-        public string Token { get; init; }
+        public string Uid { get; init; }
         
         [Required]
+        [MinLength(3)]
         public string DisplayName { get; init; }
         
         [Required]
@@ -15,6 +16,7 @@ namespace SolidTradeServer.Data.Dtos.User.Request
         public string Email { get; init; }
         
         [Required]
+        [MinLength(3)]
         public string Username { get; init; }
     }
 }

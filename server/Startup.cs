@@ -12,6 +12,7 @@ using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json;
 using Serilog;
 using SolidTradeServer.Data.Common;
+using SolidTradeServer.Data.Models.Converters;
 using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Filters;
 using SolidTradeServer.Services;
@@ -44,6 +45,9 @@ namespace SolidTradeServer
             services.AddControllers(options =>
             {
                 options.Filters.Add<AuthenticationFilter>();
+            }).AddJsonOptions(options =>
+            {
+                options.JsonSerializerOptions.Converters.Add(new StringRemoveWhitespaceConverter());
             });
         }
 
