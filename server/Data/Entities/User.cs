@@ -6,7 +6,6 @@ namespace SolidTradeServer.Data.Entities
 {
     public class User : BaseEntity
     {
-        public int PortfolioId { get; set; }
         public Portfolio Portfolio { get; set; }
         public ICollection<HistoricalPosition> HistoricalPositions { get; set; }
         
