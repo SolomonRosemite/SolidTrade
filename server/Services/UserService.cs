@@ -22,14 +22,13 @@ namespace SolidTradeServer.Services
 {
     public class UserService
     {
-        private readonly ILogger _logger;
+        private readonly ILogger _logger = Log.ForContext<UserService>();
         private readonly DbSolidTrade _database;
         private readonly IMapper _mapper;
         
-        public UserService(DbSolidTrade database, ILogger logger, IMapper mapper)
+        public UserService(DbSolidTrade database, IMapper mapper)
         {
             _database = database;
-            _logger = logger;
             _mapper = mapper;
         }
 

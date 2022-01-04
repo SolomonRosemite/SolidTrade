@@ -9,7 +9,7 @@ namespace SolidTradeServer.Services
 {
     public class WarrantService
     {
-        private async Task<OneOf<WarrantPosition, ErrorResponse>> GetWarrant(GetWarrantRequestDto data)
+        private Task<OneOf<WarrantPosition, ErrorResponse>> GetWarrant(GetWarrantRequestDto data)
         {
             // Todo: Implement Get Warrant handler.
             throw new NotImplementedException();

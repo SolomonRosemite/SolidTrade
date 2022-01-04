@@ -89,9 +89,7 @@ namespace SolidTradeServer
             });
             
             Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", Configuration["FirebaseCredentials"]);
-            
             CommonService.Firestore = FirestoreDb.Create(Configuration["FirebaseProjectId"]);
-            CommonService.Logger = logger;
         }   
     }
 }

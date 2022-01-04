@@ -11,15 +11,15 @@ namespace SolidTradeServer.Services.Common
     public static class CommonService
     {
         public static FirestoreDb Firestore { get; set; }
-        public static ILogger Logger { private get; set; }
-        
+        private static readonly ILogger _logger = Log.Logger;
+
         public static IActionResult MatchResult<T>(OneOf<T, ErrorResponse> value)
         {
             return value.Match(
                 response => new ObjectResult(response),
                 err =>
                 {
-                    Logger.Error(Constants.LogMessageTemplate, err.Error);
+                    _logger.Error(Constants.LogMessageTemplate, err.Error);
                     
                     return new ObjectResult(new UnexpectedError
                     {

@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Serilog.Sinks.Elasticsearch;
 using Serilog;
+using SolidTradeServer.Serilog;
 
 namespace SolidTradeServer
 {
@@ -20,12 +21,14 @@ namespace SolidTradeServer
                     hostConfig.AddJsonFile("appsettings.json");
                     hostConfig.AddEnvironmentVariables();
                 })
-                // Todo: Change log format
                 .UseSerilog((context, configuration) =>
                 {
-                    configuration.Enrich.FromLogContext()
+                    configuration
+                        .Enrich.FromLogContext()
                         .Enrich.WithMachineName()
-                        .WriteTo.Console()
+                        .Enrich.With(new SerilogMessageEnricher())
+                        .WriteTo.Console(
+                            outputTemplate: "{Timestamp:HH:mm:ss} [{Level:u3}] {SourceContext} - {Message:lj}{NewLine}{Exception}")
                         .WriteTo.Elasticsearch(
                             new ElasticsearchSinkOptions(new Uri(context.Configuration["ElasticConfiguration:Uri"]))
                             {
