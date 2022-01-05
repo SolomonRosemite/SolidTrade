@@ -21,6 +21,7 @@ using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Data.Models.Errors.Common;
 using SolidTradeServer.Services.Common;
 using Constants = SolidTradeServer.Common.Constants;
+using NotFound = SolidTradeServer.Data.Models.Errors.NotFound;
 
 namespace SolidTradeServer.Services
 {
@@ -55,6 +56,7 @@ namespace SolidTradeServer.Services
                 HasPublicPortfolio = true,
             };
 
+            // Todo: For user name ignore case. If not same usernames can exist.
             var usernameTaken = await AsyncEnumerable.AnyAsync(_database.Users, u => u.Username == user.Username);
             var userUidAlreadyInUse = await AsyncEnumerable.AnyAsync(_database.Users, u => u.Uid == user.Uid);
 
@@ -67,6 +69,17 @@ namespace SolidTradeServer.Services
                     UserFriendlyMessage = usernameTaken
                         ? "The username is unfortunately already in use. Please choose another one."
                         : "Seems like this google account is already linked to another user. Please choose another google account.",
+                }, HttpStatusCode.Conflict);
+            }
+            
+            
+            if (await AsyncEnumerable.AnyAsync(_database.Users, u => u.Email == user.Email))
+            {
+                return new ErrorResponse(new UserUpdateFailed
+                {
+                    Title = "Email already in use",
+                    Message = $"The email: {user.Email} is already in use.",
+                    UserFriendlyMessage = "Seems like this google account is already linked to another user. Please choose another google account.",
                 }, HttpStatusCode.Conflict);
             }
 
@@ -105,7 +118,7 @@ namespace SolidTradeServer.Services
 
             if (user is null)
             {
-                return new ErrorResponse(new UserNotFound
+                return new ErrorResponse(new NotFound
                 {
                     Title = "User not found",
                     Message = $"The user with id: {id} could not be found.",
@@ -148,7 +161,7 @@ namespace SolidTradeServer.Services
             var user = await _database.Users.AsQueryable().FirstOrDefaultAsync(u => u.Uid == uid);
             
             if (user is null)
-                return new ErrorResponse(new UserNotFound
+                return new ErrorResponse(new NotFound
                 {
                     Title = "User not found",
                     Message = $"User with uid: {uid} could not be found.",
@@ -235,7 +248,7 @@ namespace SolidTradeServer.Services
 
             if (user is null)
             {
-                return new ErrorResponse(new UserNotFound
+                return new ErrorResponse(new NotFound
                 {
                     Title = "User not found",
                     Message = $"Could not find user with uid: {uid}",

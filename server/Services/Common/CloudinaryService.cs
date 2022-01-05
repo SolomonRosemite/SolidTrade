@@ -33,10 +33,11 @@ namespace SolidTradeServer.Services.Common
         }
 
         public Task<OneOf<UploadResult, UnexpectedError>> UploadProfilePicture(string url, string uid)
-          => UploadImage(new FileDescription(url), uid, $"Projects/SolidTrade-{_environment}/");
+            => UploadImage(new FileDescription(url), 75, uid, $"Projects/SolidTrade-{_environment}/");
 
         public Task<OneOf<UploadResult, UnexpectedError>> UploadProfilePicture(IFormFile file, string uid)
-            => UploadImage(new FileDescription(file.Name, file.OpenReadStream()), uid, $"Projects/SolidTrade-{_environment}/");
+            => UploadImage(new FileDescription(file.Name, file.OpenReadStream()),
+                GetAdjustedQualityCompressionRatio(file.Length), uid, $"Projects/SolidTrade-{_environment}/");
 
         public Task<OneOf<Success, UnexpectedError>> DeleteProfilePicture(string url) 
             => DeleteImage(url);
@@ -75,15 +76,17 @@ namespace SolidTradeServer.Services.Common
             }
         }
         
-        private async Task<OneOf<UploadResult, UnexpectedError>> UploadImage(FileDescription description, string uid, string folder)
+        private async Task<OneOf<UploadResult, UnexpectedError>> UploadImage(FileDescription description, int quality, string uid, string folder)
         {
+            Console.WriteLine("Quality is: " + quality);
+            
             try
             {
                 var uploadParams = new ImageUploadParams
                 {
                     File = description,
                     Folder = folder,
-                    Transformation = new Transformation().AspectRatio(1).Crop("crop"),
+                    Transformation = new Transformation().AspectRatio(1).Crop("crop").Quality(quality),
                     FilenameOverride = uid,
                     UseFilename = true,
                 };
@@ -104,6 +107,14 @@ namespace SolidTradeServer.Services.Common
                 _logger.Error(Constants.LogMessageTemplate, error);
                 return error;
             }
+        }
+
+        private static int GetAdjustedQualityCompressionRatio(long fileSize)
+        {
+            const int threshold = 1000000; // 1MB
+            var ratio = (double) threshold / fileSize;
+
+            return ratio >= 1 ? 100 : (int)(ratio * 100);
         }
     }
 }

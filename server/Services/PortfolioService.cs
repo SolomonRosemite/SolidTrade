@@ -1,0 +1,70 @@
+﻿using System.Net;
+using System.Threading.Tasks;
+using AutoMapper;
+using Microsoft.EntityFrameworkCore;
+using OneOf;
+using SolidTradeServer.Data.Common;
+using SolidTradeServer.Data.Dtos.Portfolio.Request;
+using SolidTradeServer.Data.Dtos.Portfolio.Response;
+using SolidTradeServer.Data.Models.Errors;
+using SolidTradeServer.Data.Models.Errors.Common;
+
+namespace SolidTradeServer.Services
+{
+    public class PortfolioService
+    {
+        private readonly DbSolidTrade _database;
+        private readonly IMapper _mapper;
+
+        public PortfolioService(DbSolidTrade database, IMapper mapper)
+        {
+            _database = database;
+            _mapper = mapper;
+        }
+
+        // Todo: Respect the user property HasPublicPortfolio. If HasPublicPortfolio is false the error response should be: NotAuthorized.
+        // The same applies for the relations (WarrantPositions, OngoingKnockouts and so on)
+        public async Task<OneOf<PortfolioResponseDto, ErrorResponse>> GetPortfolio(GetPortfolioRequestDto dto)
+        {
+            var query = _database.Portfolios
+                .Include(p => p.WarrantPositions)
+                .Include(p => p.KnockOutPositions);
+
+            if (dto.IncludeOngoingPositions)
+            {
+                query
+                    .Include(p => p.OngoingWarrantPositions)
+                    .Include(p => p.OngoingKnockOutPositions);
+            }
+            
+            if (dto.PortfolioId.HasValue)
+            {
+                var portfolio = await query.FirstOrDefaultAsync(p => p.Id == dto.PortfolioId);
+
+                if (portfolio is null)
+                {
+                    return new ErrorResponse(new NotFound
+                    {
+                        Title = "Portfolio not found",
+                        Message = $"The portfolio with portfolioId: {dto.PortfolioId} could not be found.",
+                    }, HttpStatusCode.NotFound);
+                }
+
+                return _mapper.Map<PortfolioResponseDto>(portfolio);
+            }
+
+            var portfolioByUserId = await query.FirstOrDefaultAsync(p => p.UserId == dto.UserId);
+
+            if (portfolioByUserId is null)
+            {
+                return new ErrorResponse(new NotFound
+                {
+                    Title = "Portfolio not found",
+                    Message = $"The portfolio with userId: {dto.UserId} could not be found.",
+                }, HttpStatusCode.NotFound);
+            }
+
+            return _mapper.Map<PortfolioResponseDto>(portfolioByUserId);
+        }
+    }
+}
