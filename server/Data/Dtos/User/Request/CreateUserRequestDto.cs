@@ -15,5 +15,12 @@ namespace SolidTradeServer.Data.Dtos.User.Request
         [Required]
         [MinLength(3)]
         public string Username { get; init; }
+        
+        [Required]
+        [Range(10000, 100000)]
+        public int InitialBalance { get; init; }
+        
+        [Required]
+        public string ProfilePictureSeed { get; init; }
     }
 }

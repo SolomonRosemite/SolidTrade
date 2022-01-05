@@ -1,4 +1,6 @@
-﻿using System.Threading.Tasks;
+﻿using System.Linq;
+using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SolidTradeServer.Common;
 using SolidTradeServer.Data.Dtos.User.Request;
@@ -31,7 +33,7 @@ namespace SolidTradeServer.Controllers
             => CommonService.MatchResult(await _userService.SearchUserByUsername(username));
 
         [HttpPatch]
-        public async Task<IActionResult> UpdateUser([FromBody] UpdateUserDto dto)
+        public async Task<IActionResult> UpdateUser([FromForm] UpdateUserDto dto)
             => CommonService.MatchResult(await _userService.UpdateUser(dto, Request.Headers[Constants.UidHeader]));
 
         [HttpDelete]

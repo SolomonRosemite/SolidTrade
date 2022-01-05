@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -36,7 +37,12 @@ namespace SolidTradeServer
         {
             services.AddAutoMapper(typeof(Startup));
             
-            services.AddDbContext<DbSolidTrade>();
+            services.AddDbContext<DbSolidTrade>(options =>
+            {
+                options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+            });
+
+            services.AddSingleton<CloudinaryService>();
             
             services.AddTransient<UserService>();
             services.AddTransient<WarrantService>();
@@ -90,6 +96,6 @@ namespace SolidTradeServer
             
             Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", Configuration["FirebaseCredentials"]);
             CommonService.Firestore = FirestoreDb.Create(Configuration["FirebaseProjectId"]);
-        }   
+        }
     }
 }

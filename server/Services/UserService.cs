@@ -6,10 +6,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using FirebaseAdmin.Auth;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using OneOf;
+using OneOf.Types;
 using Serilog;
+using Serilog.Core;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Dtos.User.Request;
 using SolidTradeServer.Data.Dtos.User.Response;
@@ -17,17 +20,20 @@ using SolidTradeServer.Data.Entities;
 using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Data.Models.Errors.Common;
 using SolidTradeServer.Services.Common;
+using Constants = SolidTradeServer.Common.Constants;
 
 namespace SolidTradeServer.Services
 {
     public class UserService
     {
         private readonly ILogger _logger = Log.ForContext<UserService>();
+        private readonly CloudinaryService _cloudinaryService;
         private readonly DbSolidTrade _database;
         private readonly IMapper _mapper;
         
-        public UserService(DbSolidTrade database, IMapper mapper)
+        public UserService(DbSolidTrade database, IMapper mapper, CloudinaryService cloudinaryService)
         {
+            _cloudinaryService = cloudinaryService;
             _database = database;
             _mapper = mapper;
         }
@@ -42,7 +48,8 @@ namespace SolidTradeServer.Services
                 DisplayName = data.DisplayName,
                 Portfolio = new Portfolio
                 {
-                    Balance = 10000,
+                    Balance = data.InitialBalance,
+                    InitialBalance = data.InitialBalance,
                 },
                 HistoricalPositions = new List<HistoricalPosition>(),
                 HasPublicPortfolio = true,
@@ -67,6 +74,14 @@ namespace SolidTradeServer.Services
             
             try
             {
+                if ((await CreateUserProfilePictureWithSeed(data.ProfilePictureSeed, uid))
+                    .TryPickT1(out var err, out var profilePictureUrl))
+                {
+                    return new ErrorResponse(err, HttpStatusCode.InternalServerError);
+                }
+                
+                user.ProfilePictureUrl = profilePictureUrl.AbsoluteUri;
+                
                 newUser = await _database.Users.AddAsync(user);
                 await _database.SaveChangesAsync();
             }
@@ -130,23 +145,14 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.BadRequest);
             }
             
-            var user = await _database.Users.FindAsync(dto.Id);
-
+            var user = await _database.Users.AsQueryable().FirstOrDefaultAsync(u => u.Uid == uid);
+            
             if (user is null)
                 return new ErrorResponse(new UserNotFound
                 {
                     Title = "User not found",
-                    Message = $"User with id: {dto.Id} could not be found.",
+                    Message = $"User with uid: {uid} could not be found.",
                 }, HttpStatusCode.NotFound);
-            
-            if (user.Uid != uid)
-            {
-                return new ErrorResponse(new NotAuthorized
-                {
-                    Title = "Tried updating another user",
-                    Message = "The target user to update is not the same as the user requesting to update.",
-                }, HttpStatusCode.Unauthorized);
-            }
             
             if (dto.Username is not null && await AsyncEnumerable.AnyAsync(_database.Users, u => u.Username == dto.Username))
             {
@@ -168,15 +174,47 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.Conflict);
             }
             
+            string updatedProfilePicture = null;
+            if (dto.ProfilePictureFile is not null)
+            {
+                var result = await CreateUserProfilePictureWithFile(dto.ProfilePictureFile, uid);
+
+                if (result.TryPickT1(out var error, out var uri))
+                    return new ErrorResponse(error, HttpStatusCode.InternalServerError);
+
+                updatedProfilePicture = uri.AbsoluteUri;
+            } else if (dto.ProfilePictureSeed is not null)
+            {
+                var result = await CreateUserProfilePictureWithSeed(dto.ProfilePictureSeed, uid);
+
+                if (result.TryPickT1(out var error, out var uri))
+                    return new ErrorResponse(error, HttpStatusCode.InternalServerError);
+                
+                updatedProfilePicture = uri.AbsoluteUri;
+            }
+
             user.Email = dto.Email ?? user.Email;
             user.Username = dto.Username ?? user.Username;
             user.DisplayName = dto.DisplayName ?? user.DisplayName;
-            user.ProfilePictureUrl = dto.ProfilePictureUrl ?? user.ProfilePictureUrl;
 
+            string prevProfilePicture = null;
+            if (updatedProfilePicture is not null && updatedProfilePicture != user.ProfilePictureUrl)
+            {
+                prevProfilePicture = user.ProfilePictureUrl;
+                user.ProfilePictureUrl = updatedProfilePicture;
+            }
+            
             try
             {
                 _database.Users.Update(user);
                 await _database.SaveChangesAsync();
+
+                if (prevProfilePicture is not null)
+                    (await DeleteUserProfilePicture(prevProfilePicture)).Switch(_ => {}, err =>
+                    {
+                        _logger.Warning(Constants.LogMessageTemplate, err);
+                    });
+                
                 return _mapper.Map<UserResponseDto>(user);
             }
             catch (Exception e)
@@ -184,15 +222,16 @@ namespace SolidTradeServer.Services
                 return new ErrorResponse(new UserUpdateFailed
                 {
                     Title = "Failed to save updated user",
-                    Message = $"Failed to update user with id: {dto.Id}",
+                    Message = $"Failed to update user with uid: {uid}",
                     Exception = e,
+                    AdditionalData = new { dto }
                 }, HttpStatusCode.InternalServerError);
             }
         }
 
         public async Task<OneOf<DeleteUserResponseDto, ErrorResponse>> DeleteUser(string uid)
         {
-            var user = await AsyncEnumerable.FirstOrDefaultAsync(_database.Users, u => u.Uid == uid);
+            var user = await _database.Users.AsQueryable().FirstOrDefaultAsync(u => u.Uid == uid);
 
             if (user is null)
             {
@@ -229,6 +268,8 @@ namespace SolidTradeServer.Services
                 _database.Users.Remove(user);
                 await _database.SaveChangesAsync();
                 _logger.Information($"User delete with id: {user.Id} was successful");
+
+                await DeleteUserProfilePicture(user.ProfilePictureUrl);
             }
             catch (Exception e)
             {
@@ -241,6 +282,25 @@ namespace SolidTradeServer.Services
             }
             
             return new DeleteUserResponseDto { Successful = true };
+        }
+
+        private async Task<OneOf<Uri, UnexpectedError>> CreateUserProfilePictureWithSeed(string seed, string uid)
+        {
+            var result = await _cloudinaryService.UploadProfilePicture($"https://avatars.dicebear.com/api/micah/{seed}.svg", uid);
+
+            return result.Match<OneOf<Uri, UnexpectedError>>(uploadResult => uploadResult.SecureUrl, error => error);
+        }
+
+        private async Task<OneOf<Uri, UnexpectedError>> CreateUserProfilePictureWithFile(IFormFile file, string uid)
+        {
+            var result = await _cloudinaryService.UploadProfilePicture(file, uid);
+
+            return result.Match<OneOf<Uri, UnexpectedError>>(uploadResult => uploadResult.SecureUrl, error => error);
+        }
+
+        private async Task<OneOf<Success, UnexpectedError>> DeleteUserProfilePicture(string profilePictureUrl)
+        {
+            return await _cloudinaryService.DeleteProfilePicture(profilePictureUrl);
         }
     }
 }

@@ -1,12 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using Microsoft.AspNetCore.Http;
+using SolidTradeServer.Data.Models.Annotations;
 
 namespace SolidTradeServer.Data.Dtos.User.Request
 {
     public class UpdateUserDto
     {
-        [Required]
-        public int Id { get; init; }
-     
         [EmailAddress]
         public string Email { get; init; }
         
@@ -14,6 +13,10 @@ namespace SolidTradeServer.Data.Dtos.User.Request
         
         public string Username { get; init; }
         
-        public string ProfilePictureUrl { get; init; }
+        public string ProfilePictureSeed { get; init; }
+        
+        // Size limit 10mb
+        [MaxFileSize(10000000)]
+        public IFormFile ProfilePictureFile { get; init; }
     }
 }
