@@ -6,6 +6,8 @@ namespace SolidTradeServer.Data.Entities
 {
     public class HistoricalPosition : BaseEntity
     {
+        public int UserId { get; set; }
+        
         [Required]
         public PositionType PositionType { get; set; }
         
