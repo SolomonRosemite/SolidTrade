@@ -11,6 +11,7 @@ namespace SolidTradeServer.Data.Entities
         public User User { get; set; }
         
         public decimal Balance { get; set; }
+        public decimal InitialBalance { get; set; }
         
         public ICollection<WarrantPosition> WarrantPositions { get; set; }
         public ICollection<KnockoutPosition> KnockOutPositions { get; set; }
