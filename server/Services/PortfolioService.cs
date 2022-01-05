@@ -24,9 +24,10 @@ namespace SolidTradeServer.Services
 
         // Todo: Respect the user property HasPublicPortfolio. If HasPublicPortfolio is false the error response should be: NotAuthorized.
         // The same applies for the relations (WarrantPositions, OngoingKnockouts and so on)
-        public async Task<OneOf<PortfolioResponseDto, ErrorResponse>> GetPortfolio(GetPortfolioRequestDto dto)
+        public async Task<OneOf<PortfolioResponseDto, ErrorResponse>> GetPortfolio(GetPortfolioRequestDto dto, string uid)
         {
             var query = _database.Portfolios
+                .Include(p => p.User)
                 .Include(p => p.WarrantPositions)
                 .Include(p => p.KnockOutPositions);
 
@@ -49,6 +50,15 @@ namespace SolidTradeServer.Services
                         Message = $"The portfolio with portfolioId: {dto.PortfolioId} could not be found.",
                     }, HttpStatusCode.NotFound);
                 }
+                
+                if (!portfolio.User.HasPublicPortfolio && portfolio.User.Uid != uid)
+                {
+                    return new ErrorResponse(new NotAuthorized
+                    {
+                        Title = "Portfolio is private",
+                        Message = "Tried to access other user's portfolio",
+                    }, HttpStatusCode.Unauthorized);
+                }
 
                 return _mapper.Map<PortfolioResponseDto>(portfolio);
             }
@@ -62,6 +72,15 @@ namespace SolidTradeServer.Services
                     Title = "Portfolio not found",
                     Message = $"The portfolio with userId: {dto.UserId} could not be found.",
                 }, HttpStatusCode.NotFound);
+            }
+            
+            if (!portfolioByUserId.User.HasPublicPortfolio && portfolioByUserId.User.Uid != uid)
+            {
+                return new ErrorResponse(new NotAuthorized
+                {
+                    Title = "Portfolio is private",
+                    Message = "Tried to access other user's portfolio",
+                }, HttpStatusCode.Unauthorized);
             }
 
             return _mapper.Map<PortfolioResponseDto>(portfolioByUserId);

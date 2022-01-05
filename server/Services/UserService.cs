@@ -56,9 +56,11 @@ namespace SolidTradeServer.Services
                 HasPublicPortfolio = true,
             };
 
-            // Todo: For user name ignore case. If not same usernames can exist.
-            var usernameTaken = await AsyncEnumerable.AnyAsync(_database.Users, u => u.Username == user.Username);
-            var userUidAlreadyInUse = await AsyncEnumerable.AnyAsync(_database.Users, u => u.Uid == user.Uid);
+            var usernameTaken = await _database.Users.AsQueryable()
+                .AnyAsync(u => EF.Functions.Like(u.Username, $"%{user.Username}%"));
+            
+            var userUidAlreadyInUse = await _database.Users.AsQueryable()
+                .AnyAsync(u => u.Uid == user.Uid);
 
             if (usernameTaken || userUidAlreadyInUse)
             {
@@ -73,7 +75,7 @@ namespace SolidTradeServer.Services
             }
             
             
-            if (await AsyncEnumerable.AnyAsync(_database.Users, u => u.Email == user.Email))
+            if (await _database.Users.AsQueryable().AnyAsync(u => EF.Functions.Like(u.Username, $"%{user.Username}%")))
             {
                 return new ErrorResponse(new UserUpdateFailed
                 {
@@ -167,7 +169,8 @@ namespace SolidTradeServer.Services
                     Message = $"User with uid: {uid} could not be found.",
                 }, HttpStatusCode.NotFound);
             
-            if (dto.Username is not null && await AsyncEnumerable.AnyAsync(_database.Users, u => u.Username == dto.Username))
+            if (dto.Username is not null && await _database.Users
+                .AsQueryable().AnyAsync(u => EF.Functions.Like(u.Username, $"%{user.Username}%")))
             {
                 return new ErrorResponse(new UserUpdateFailed
                 {
@@ -177,7 +180,8 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.Conflict);
             }
 
-            if (dto.Email is not null && await AsyncEnumerable.AnyAsync(_database.Users, u => u.Email == dto.Email))
+            if (dto.Email is not null && await _database.Users
+                .AsQueryable().AnyAsync(u => EF.Functions.Like(u.Email, $"%{dto.Email}%")))
             {
                 return new ErrorResponse(new UserUpdateFailed
                 {

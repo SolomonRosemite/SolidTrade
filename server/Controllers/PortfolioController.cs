@@ -23,6 +23,6 @@ namespace SolidTradeServer.Controllers
 
         [HttpGet]
         public async Task<IActionResult> Get([FromQuery] GetPortfolioRequestDto dto)
-            => CommonService.MatchResult(await _portfolioService.GetPortfolio(dto));
+            => CommonService.MatchResult(await _portfolioService.GetPortfolio(dto, Request.Headers[Constants.UidHeader]));
     }
 }

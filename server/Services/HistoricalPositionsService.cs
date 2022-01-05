@@ -43,7 +43,7 @@ namespace SolidTradeServer.Services
                 return new ErrorResponse(new NotAuthorized
                 {
                     Title = "Portfolio is private",
-                    Message = "Tried to access other users portfolio",
+                    Message = "Tried to access other user's portfolio",
                 }, HttpStatusCode.Unauthorized);
             }
 
