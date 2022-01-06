@@ -22,8 +22,6 @@ namespace SolidTradeServer.Services
             _mapper = mapper;
         }
 
-        // Todo: Respect the user property HasPublicPortfolio. If HasPublicPortfolio is false the error response should be: NotAuthorized.
-        // The same applies for the relations (WarrantPositions, OngoingKnockouts and so on)
         public async Task<OneOf<PortfolioResponseDto, ErrorResponse>> GetPortfolio(GetPortfolioRequestDto dto, string uid)
         {
             var query = _database.Portfolios

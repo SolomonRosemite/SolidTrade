@@ -43,6 +43,7 @@ namespace SolidTradeServer
             });
 
             services.AddSingleton<CloudinaryService>();
+            services.AddSingleton<TradeRepublicApiService>();
             
             services.AddTransient<UserService>();
             services.AddTransient<WarrantService>();
