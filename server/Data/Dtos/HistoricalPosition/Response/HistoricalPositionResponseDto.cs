@@ -9,9 +9,9 @@ namespace SolidTradeServer.Data.Dtos.HistoricalPosition.Response
         
         public BuyOrSell BuyOrSell { get; set; }
         
-        public float BuyInPrice { get; set; }
+        public decimal BuyInPrice { get; set; }
         
-        public float Performance { get; set; }
+        public decimal Performance { get; set; }
         
         public int NumberOfShares { get; set; }
         

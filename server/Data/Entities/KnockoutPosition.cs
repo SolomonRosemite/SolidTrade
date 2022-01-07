@@ -1,10 +1,10 @@
 ﻿using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using SolidTradeServer.Data.Entities.Common;
+using SolidTradeServer.Data.Models.Common.Position;
 
 namespace SolidTradeServer.Data.Entities
 {
-    public class KnockoutPosition : BaseEntity
+    public class KnockoutPosition : BaseEntity, IPosition
     {
         [Required]
         public Portfolio Portfolio { get; set; }
@@ -14,6 +14,6 @@ namespace SolidTradeServer.Data.Entities
         public string Isin { get; set; }
         
         public int NumberOfShares { get; set; }
-        public float BuyInPrice { get; set; }
+        public decimal BuyInPrice { get; set; }
     }
 }

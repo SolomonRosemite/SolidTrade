@@ -7,6 +7,6 @@ namespace SolidTradeServer.Data.Dtos.Knockout.Response
         public string Isin { get; set; }
         
         public int NumberOfShares { get; set; }
-        public float BuyInPrice { get; set; }
+        public decimal BuyInPrice { get; set; }
     }
 }

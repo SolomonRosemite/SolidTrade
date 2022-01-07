@@ -15,10 +15,10 @@ namespace SolidTradeServer.Data.Entities
         public BuyOrSell BuyOrSell { get; set; }
         
         [Required]
-        public float BuyInPrice { get; set; }
+        public decimal BuyInPrice { get; set; }
         
         [Required]
-        public float Performance { get; set; }
+        public decimal Performance { get; set; }
         
         [Required]
         public int NumberOfShares { get; set; }
