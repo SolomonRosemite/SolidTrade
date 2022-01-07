@@ -8,6 +8,6 @@ namespace SolidTradeServer.Data.Models.Errors.Base
         public string Message { get; }
         public string UserFriendlyMessage { get; }
         public object AdditionalData { get; }
-        public Exception Exception { get; }
+        public Exception Exception { get; set; }
     }
 }

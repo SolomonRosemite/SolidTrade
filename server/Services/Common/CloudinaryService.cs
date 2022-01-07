@@ -55,8 +55,6 @@ namespace SolidTradeServer.Services.Common
             
                 var publicId = s1.Substring(slashIndex + 1, s1.LastIndexOf('.') - slashIndex - 1);
 
-                Console.WriteLine(publicId);
-            
                 var deletionParams = new DeletionParams(publicId);
                 await _cloudinary.DestroyAsync(deletionParams);
                 return new Success();

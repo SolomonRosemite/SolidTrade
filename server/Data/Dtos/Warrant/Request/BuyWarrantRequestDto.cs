@@ -8,6 +8,7 @@ namespace SolidTradeServer.Data.Dtos.Warrant.Request
         public string WarrantIsin { get; init; }
         
         [Required]
-        public int? NumberOfShares { get; init; }
+        [Range(1, int.MaxValue)]
+        public int NumberOfShares { get; init; }
     }
 }

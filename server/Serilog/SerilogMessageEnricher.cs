@@ -11,7 +11,7 @@ namespace SolidTradeServer.Serilog
         {
             var typeName = logEvent.Properties.GetValueOrDefault("SourceContext")?.ToString();
             var actionName = logEvent.Properties.GetValueOrDefault("ActionName")?.ToString();
-
+            
             if (actionName is not null)
             {
                 var name = actionName.AsSpan();

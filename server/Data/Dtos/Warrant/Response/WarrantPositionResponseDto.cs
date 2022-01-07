@@ -6,7 +6,7 @@ namespace SolidTradeServer.Data.Dtos.Warrant.Response
     {
         public string Isin { get; set; }
         
-        public float BuyInPrice { get; set; }
+        public decimal BuyInPrice { get; set; }
         public int NumberOfShares { get; set; }
     }
 }

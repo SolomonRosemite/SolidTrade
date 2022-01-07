@@ -1,4 +1,5 @@
-﻿using SolidTradeServer.Data.Models.Errors.Base;
+﻿using Newtonsoft.Json;
+using SolidTradeServer.Data.Models.Errors.Base;
 
 namespace SolidTradeServer.Data.Models.Errors
 {
@@ -9,4 +10,7 @@ namespace SolidTradeServer.Data.Models.Errors
     public class UserCreateFailed : BaseErrorModel { }
     public class UserUpdateFailed : BaseErrorModel { }
     public class UserDeleteFailed : BaseErrorModel { }
+    
+    public class InsufficientFounds : BaseErrorModel { }
+    public class StockMarketClosed : BaseErrorModel { }
 }

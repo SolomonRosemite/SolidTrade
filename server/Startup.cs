@@ -17,6 +17,7 @@ using SolidTradeServer.Data.Models.Converters;
 using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Filters;
 using SolidTradeServer.Services;
+using SolidTradeServer.Services.Cache;
 using SolidTradeServer.Services.Common;
 using AuthenticationService = SolidTradeServer.Services.AuthenticationService;
 
@@ -44,6 +45,7 @@ namespace SolidTradeServer
 
             services.AddSingleton<CloudinaryService>();
             services.AddSingleton<TradeRepublicApiService>();
+            services.AddSingleton<ICacheService, CacheService>();
             
             services.AddTransient<UserService>();
             services.AddTransient<WarrantService>();
