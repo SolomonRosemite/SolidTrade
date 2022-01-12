@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using Google.Cloud.Firestore;
@@ -50,6 +51,7 @@ namespace SolidTradeServer
             services.AddTransient<UserService>();
             services.AddTransient<WarrantService>();
             services.AddTransient<PortfolioService>();
+            services.AddTransient<OngoingWarrantService>();
             services.AddTransient<AuthenticationService>();
             services.AddTransient<HistoricalPositionsService>();
             
@@ -61,6 +63,7 @@ namespace SolidTradeServer
             }).AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.Converters.Add(new StringRemoveWhitespaceConverter());
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(null, false));
             });
         }
 
@@ -93,6 +96,8 @@ namespace SolidTradeServer
             {
                 endpoints.MapControllers();
             });
+            
+            app.ApplicationServices.GetService<TradeRepublicApiService>();
             
             FirebaseApp.Create(new AppOptions
             {

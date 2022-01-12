@@ -22,6 +22,13 @@ namespace SolidTradeServer.Data.Entities
         
         [Required]
         public KnockoutPosition CurrentKnockoutPosition { get; set; }
+        
+        [Required]
+        [Range(0.00010, int.MaxValue)]
         public decimal Price { get; set; }
+        
+        [Required]
+        [Range(1, int.MaxValue)]
+        public int NumberOfShares  { get; set; }
     }
 }

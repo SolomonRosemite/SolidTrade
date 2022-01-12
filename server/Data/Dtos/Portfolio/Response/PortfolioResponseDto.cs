@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using SolidTradeServer.Data.Dtos.Knockout.Response;
-using SolidTradeServer.Data.Dtos.OngoingKnockout;
+using SolidTradeServer.Data.Dtos.OngoingKnockout.Response;
 using SolidTradeServer.Data.Dtos.OngoingWarrant.Response;
 using SolidTradeServer.Data.Dtos.Warrant.Response;
 using SolidTradeServer.Data.Entities.Common;

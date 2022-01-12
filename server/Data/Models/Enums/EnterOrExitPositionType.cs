@@ -2,9 +2,9 @@
 {
     public enum EnterOrExitPositionType
 {
-        BuyLimitPriceOrder = 0,
-        BuyStopPriceOrder = 1,
-        SellLimitPriceOrder = 2,
-        SellStopPriceOrder = 3,
+        BuyLimitOrder = 0,
+        BuyStopOrder = 1,
+        SellLimitOrder = 2,
+        SellStopOrder = 3,
     }
 }

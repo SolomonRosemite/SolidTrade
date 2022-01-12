@@ -15,5 +15,6 @@ namespace SolidTradeServer.Data.Dtos.OngoingWarrant.Response
         
         public KnockoutPositionResponseDto CurrentKnockoutPosition { get; set; }
         public decimal Price { get; set; }
+        public int NumberOfShares { get; set; }
     }
 }

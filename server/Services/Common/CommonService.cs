@@ -1,13 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using Google.Cloud.Firestore;
+﻿using Google.Cloud.Firestore;
 using Microsoft.AspNetCore.Mvc;
 using OneOf;
 using Serilog;
-using Serilog.Core;
+using SolidTradeServer.Data.Dtos.Warrant.TradeRepublic;
 using SolidTradeServer.Data.Models.Common.Position;
+using SolidTradeServer.Data.Models.Enums;
 using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Data.Models.Errors.Common;
 using Constants = SolidTradeServer.Common.Constants;
@@ -25,9 +22,7 @@ namespace SolidTradeServer.Services.Common
                 response => new ObjectResult(response),
                 err =>
                 {
-                    var exception = err.Error.Exception;
-                    err.Error.Exception = null;
-                    _logger.Error(Constants.LogMessageTemplate, err.Error, exception);
+                    _logger.Error(Constants.LogMessageTemplate, err.Error);
                     
                     return new ObjectResult(new UnexpectedError
                     {
@@ -52,28 +47,26 @@ namespace SolidTradeServer.Services.Common
             return position;
         }
         
-        public static T ToObject<T>(this IDictionary<string, object> source)
-            where T : class, new()
+        public static string CleanIsin(string isin)
         {
-            var someObject = new T();
-            var someObjectType = someObject.GetType();
-
-            foreach (var item in source)
-            {
-                someObjectType.GetProperty(item.Key)
-                    .SetValue(someObject, item.Value, null);
-            }
-
-            return someObject;
+            var i = isin.IndexOf('.');
+            return i == -1 ? isin.Trim().ToUpper() : isin[..i].Trim().ToUpper();
         }
 
-        public static IDictionary<string, object> AsDictionary(this object source, BindingFlags bindingAttr = BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Instance)
+        // public static Func<TradeRepublicProductPriceResponseDto, decimal, bool> GetOngoingProductHandler(EnterOrExitPositionType type)
+        public static bool GetOngoingProductHandler(EnterOrExitPositionType type, TradeRepublicProductPriceResponseDto value, decimal price)
         {
-            return source.GetType().GetProperties(bindingAttr).ToDictionary
-            (
-                propInfo => propInfo.Name,
-                propInfo => propInfo.GetValue(source, null)
-            );
+            return type switch
+            {
+                // Current has to be below
+                EnterOrExitPositionType.BuyLimitOrder => price >= value.Ask.Price,
+                // Current has to be above
+                EnterOrExitPositionType.BuyStopOrder => value.Ask.Price >= price,
+                // Current has to be above (take profit)
+                EnterOrExitPositionType.SellLimitOrder => price <= value.Bid.Price,
+                // Current has to be below (stop loss)
+                EnterOrExitPositionType.SellStopOrder => value.Bid.Price <= price,
+            };
         }
     }
 }

@@ -2,7 +2,7 @@
 
 namespace SolidTradeServer.Data.Dtos.Warrant.Request
 {
-    public class BuyWarrantRequestDto
+    public class BuyOrSellWarrantRequestDto
     {
         [Required]
         public string WarrantIsin { get; init; }

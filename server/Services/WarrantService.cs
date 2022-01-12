@@ -70,14 +70,14 @@ namespace SolidTradeServer.Services
             return _mapper.Map<WarrantPositionResponseDto>(warrant);
         }
 
-        public async Task<OneOf<WarrantPositionResponseDto, ErrorResponse>> BuyWarrant(BuyWarrantRequestDto dto, string uid)
+        public async Task<OneOf<WarrantPositionResponseDto, ErrorResponse>> BuyWarrant(BuyOrSellWarrantRequestDto dto, string uid)
         {
             if ((await IsStockMarketOpen(dto)).TryPickT1(out var errorResponse1, out _))
                 return errorResponse1;
 
             var requestString = "{\"type\":\"ticker\",\"id\":\"" + dto.WarrantIsin + "\"}";
 
-            if ((await MakeTrRequest<TradeRepublicWarrantResponseDto>(requestString, dto)).TryPickT1(
+            if ((await MakeTrRequest<TradeRepublicProductPriceResponseDto>(requestString, dto)).TryPickT1(
                 out var errorResponse2, out var trResponse))
                 return errorResponse2;
 
@@ -105,7 +105,7 @@ namespace SolidTradeServer.Services
             // Todo: Also for the ongoing order. When to order get a fill check first if the balance is sufficient.
             var warrant = new WarrantPosition
             {
-                Isin = CleanIsin(dto.WarrantIsin),
+                Isin = CommonService.CleanIsin(dto.WarrantIsin),
                 BuyInPrice = trResponse.Ask.Price,
                 Portfolio = user.Portfolio,
                 NumberOfShares = dto.NumberOfShares,
@@ -122,7 +122,7 @@ namespace SolidTradeServer.Services
                 NumberOfShares = dto.NumberOfShares,
             };
 
-            var (isNew, newWarrant) = await AddOrUpdate(warrant);
+            var (isNew, newWarrant) = await AddOrUpdate(warrant, user.Portfolio.Id);
 
             try
             {
@@ -151,8 +151,99 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.InternalServerError);
             }
         }
+        
+        public async Task<OneOf<WarrantPositionResponseDto, ErrorResponse>> SellWarrant(BuyOrSellWarrantRequestDto dto, string uid)
+        {
+            if ((await IsStockMarketOpen(dto)).TryPickT1(out var errorResponse1, out _))
+                return errorResponse1;
 
-        private async Task<OneOf<T, ErrorResponse>> MakeTrRequest<T>(string requestString, BuyWarrantRequestDto dto)
+            var cleanIsin = CommonService.CleanIsin(dto.WarrantIsin);
+            var requestString = "{\"type\":\"ticker\",\"id\":\"" + dto.WarrantIsin + "\"}";
+
+            if ((await MakeTrRequest<TradeRepublicProductPriceResponseDto>(requestString, dto)).TryPickT1(
+                out var errorResponse2, out var trResponse))
+                return errorResponse2;
+
+            var user = await _database.Users
+                .Include(u => u.Portfolio)
+                .FirstOrDefaultAsync(u => u.Uid == uid);
+
+            var totalGain = trResponse.Bid.Price * dto.NumberOfShares;
+
+            var warrantPosition = await _database.WarrantPositions.AsQueryable()
+                .FirstOrDefaultAsync(w =>
+                    EF.Functions.Like(w.Isin, $"%{cleanIsin}%") && user.Portfolio.Id == w.Portfolio.Id);
+            
+            if (warrantPosition is null)
+            {
+                return new ErrorResponse(new NotFound
+                {
+                    Title = "Warrant not found",
+                    Message = $"Warrant with isin: {CommonService.CleanIsin(dto.WarrantIsin)} could not be found.",
+                    AdditionalData = new { Dto = dto }
+                }, HttpStatusCode.NotFound);
+            }
+
+            if (warrantPosition.NumberOfShares < dto.NumberOfShares)
+            {
+                return new ErrorResponse(new TradeFailed
+                {
+                    Title = "Sell failed",
+                    Message = "Can't sell more shares than existent",
+                    UserFriendlyMessage = "You can't sell more shares than you have.",
+                    AdditionalData = new { Dto = dto, Warrant = _mapper.Map<WarrantPositionResponseDto>(warrantPosition) }
+                }, HttpStatusCode.BadRequest);
+            }
+            
+            var performance = trResponse.Bid.Price / warrantPosition.BuyInPrice;
+            
+            var historicalPositions = new HistoricalPosition
+            {
+                BuyOrSell = BuyOrSell.Sell,
+                Isin = cleanIsin,
+                Performance = performance,
+                PositionType = PositionType.Warrant,
+                UserId = user.Id,
+                BuyInPrice = trResponse.Bid.Price,
+                NumberOfShares = dto.NumberOfShares,
+            };
+
+            try
+            {
+                user.Portfolio.Balance += totalGain;
+                
+                if (warrantPosition.NumberOfShares == dto.NumberOfShares)
+                    _database.WarrantPositions.Remove(warrantPosition);
+                else
+                {
+                    warrantPosition.NumberOfShares -= dto.NumberOfShares;
+                    _database.WarrantPositions.Update(warrantPosition);
+                }
+
+                _database.Portfolios.Update(user.Portfolio);
+                _database.HistoricalPositions.Add(historicalPositions);
+                
+                await _database.SaveChangesAsync();
+                return _mapper.Map<WarrantPositionResponseDto>(warrantPosition);
+            }
+            catch (Exception e)
+            {
+                return new ErrorResponse(new UnexpectedError
+                {
+                    Title = "Could not sell position",
+                    Message = "Failed to sell position.",
+                    Exception = e,
+                    UserFriendlyMessage = "Something went very wrong. Please try again later.",
+                    AdditionalData = new
+                    {
+                        SoldAll = warrantPosition.NumberOfShares == dto.NumberOfShares, Dto = dto, UserUid = uid,
+                        Message = "Maybe there was a problem with the isin?"
+                    },
+                }, HttpStatusCode.InternalServerError);
+            }
+        }
+
+        private async Task<OneOf<T, ErrorResponse>> MakeTrRequest<T>(string requestString, BuyOrSellWarrantRequestDto dto)
         {
             var cts = new CancellationTokenSource();
             T trResponse;
@@ -171,7 +262,7 @@ namespace SolidTradeServer.Services
                 return new ErrorResponse(new UnexpectedError
                 {
                     Title = "Task timeout",
-                    Message = "Fetching warrant using trade republic api took too long.",
+                    Message = "Fetching product using trade republic api took too long.",
                     AdditionalData = new {dto}
                 }, HttpStatusCode.InternalServerError);
             }
@@ -180,7 +271,7 @@ namespace SolidTradeServer.Services
             return trResponse;
         }
 
-        private async Task<OneOf<Success, ErrorResponse>> IsStockMarketOpen(BuyWarrantRequestDto dto)
+        private async Task<OneOf<Success, ErrorResponse>> IsStockMarketOpen(BuyOrSellWarrantRequestDto dto)
         {
             if ((await _trApiService.IsStockMarketOpen(dto.WarrantIsin)).TryPickT1(out var unexpectedError, out var isStockMarketOpen))
                 return new ErrorResponse(unexpectedError, HttpStatusCode.InternalServerError);
@@ -198,17 +289,11 @@ namespace SolidTradeServer.Services
             return new Success();
         }
 
-        // public async Task<OneOf<WarrantPositionResponseDto, ErrorResponse>> SellWarrant(BuyWarrantRequestDto dto, string uid)
-        // {
-        //     var user = await _database.Users.FirstOrDefaultAsync(u => u.Uid == uid);
-        //     
-        //     
-        // }
-
-        private async Task<(bool, WarrantPosition)> AddOrUpdate(WarrantPosition warrantPosition)
+        private async Task<(bool, WarrantPosition)> AddOrUpdate(WarrantPosition warrantPosition, int portfolioId)
         {
             var warrant = await _database.WarrantPositions.AsQueryable()
-                .FirstOrDefaultAsync(w => EF.Functions.Like(w.Isin, $"%{warrantPosition.Isin}%"));
+                .FirstOrDefaultAsync(w =>
+                    EF.Functions.Like(w.Isin, $"%{warrantPosition.Isin}%") && portfolioId == w.Portfolio.Id);
 
             if (warrant is null)
                 return (true, warrantPosition);
@@ -219,12 +304,6 @@ namespace SolidTradeServer.Services
             warrant.NumberOfShares = position.NumberOfShares;
             
             return (false, warrant);
-        }
-
-        private string CleanIsin(string isin)
-        {
-            var i = isin.IndexOf('.');
-            return i == -1 ? isin.Trim().ToUpper() : isin.Substring(0, i).Trim().ToUpper();
         }
     }
 }

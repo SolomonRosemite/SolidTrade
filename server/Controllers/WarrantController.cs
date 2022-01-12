@@ -24,8 +24,13 @@ namespace SolidTradeServer.Controllers
                 await _warrantService.GetWarrant(id, Request.Headers[Constants.UidHeader]));
 
         [HttpPost]
-        public async Task<IActionResult> BuyWarrant([FromBody] BuyWarrantRequestDto dto)
+        public async Task<IActionResult> BuyWarrant([FromBody] BuyOrSellWarrantRequestDto dto)
             => CommonService.MatchResult(
                 await _warrantService.BuyWarrant(dto, Request.Headers[Constants.UidHeader]));
+
+        [HttpDelete]
+        public async Task<IActionResult> SellWarrant([FromBody] BuyOrSellWarrantRequestDto dto)
+            => CommonService.MatchResult(
+                await _warrantService.SellWarrant(dto, Request.Headers[Constants.UidHeader]));
     }
 }

@@ -12,7 +12,6 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using OneOf;
 using OneOf.Types;
 using Serilog;
-using Serilog.Core;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Dtos.User.Request;
 using SolidTradeServer.Data.Dtos.User.Response;
@@ -96,6 +95,9 @@ namespace SolidTradeServer.Services
                 }
                 
                 user.ProfilePictureUrl = profilePictureUrl.AbsoluteUri;
+
+                await CommonService.Firestore.Document($"users/{uid}")
+                    .SetAsync(new { Update = "None" });
                 
                 newUser = await _database.Users.AddAsync(user);
                 await _database.SaveChangesAsync();

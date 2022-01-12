@@ -2,7 +2,7 @@
 using SolidTradeServer.Data.Entities.Common;
 using SolidTradeServer.Data.Models.Enums;
 
-namespace SolidTradeServer.Data.Dtos.OngoingKnockout
+namespace SolidTradeServer.Data.Dtos.OngoingKnockout.Response
 {
     public class OngoingKnockoutPositionResponseDto : BaseEntity
     {
@@ -14,5 +14,6 @@ namespace SolidTradeServer.Data.Dtos.OngoingKnockout
         
         public OngoingKnockoutPositionResponseDto CurrentKnockoutPosition { get; set; }
         public decimal Price { get; set; }
+        public int NumberOfShares { get; set; }
     }
 }

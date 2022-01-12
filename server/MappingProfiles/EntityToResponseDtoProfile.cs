@@ -1,7 +1,8 @@
 ﻿using AutoMapper;
 using SolidTradeServer.Data.Dtos.HistoricalPosition.Response;
 using SolidTradeServer.Data.Dtos.Knockout.Response;
-using SolidTradeServer.Data.Dtos.OngoingKnockout;
+using SolidTradeServer.Data.Dtos.OngoingKnockout.Response;
+using SolidTradeServer.Data.Dtos.OngoingWarrant.Response;
 using SolidTradeServer.Data.Dtos.Portfolio.Response;
 using SolidTradeServer.Data.Dtos.User.Response;
 using SolidTradeServer.Data.Dtos.Warrant.Response;
@@ -19,7 +20,7 @@ namespace SolidTradeServer.MappingProfiles
             CreateMap<WarrantPosition, WarrantPositionResponseDto>();
             
             CreateMap<OngoingKnockoutPosition, OngoingKnockoutPositionResponseDto>();
-            CreateMap<OngoingWarrantPosition, OngoingWarrantPosition>();
+            CreateMap<OngoingWarrantPosition, OngoingWarrantPositionResponseDto>();
             
             CreateMap<Portfolio, PortfolioResponseDto>();
             CreateMap<User, UserResponseDto>();
