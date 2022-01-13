@@ -28,9 +28,9 @@ namespace SolidTradeServer.Controllers
             => CommonService.MatchResult(
                 await _ongoingWarrantService.OpenOngoingWarrant(dto, Request.Headers[Constants.UidHeader]));
 
-        // [HttpDelete]
-        // public async Task<IActionResult> CloseOngoingWarrant([FromBody] OngoingPositionRequestDto dto)
-        //     => CommonService.MatchResult(
-        //         await _ongoingWarrantService.CloseOngoingWarrant(dto, Request.Headers[Constants.UidHeader]));
+        [HttpDelete]
+        public async Task<IActionResult> CloseOngoingWarrant([FromBody] CloseOngoingPositionRequestDto dto)
+            => CommonService.MatchResult(
+                await _ongoingWarrantService.CloseOngoingWarrant(dto, Request.Headers[Constants.UidHeader]));
     }
 }

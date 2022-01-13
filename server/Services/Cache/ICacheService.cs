@@ -21,6 +21,6 @@ namespace SolidTradeServer.Services.Cache
         /// <typeparam name="T">The expected type.</typeparam>
         /// <param name="identifier">The entity id.</param>
         /// <param name="value">The item that should be cached.</param>
-        void SetCachedValue<T>(string identifier, object value);
+        void SetCachedValue<T>(string identifier, T value);
     }
 }

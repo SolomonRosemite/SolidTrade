@@ -4,6 +4,8 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Serilog.Sinks.Elasticsearch;
 using Serilog;
+using Serilog.Core;
+using Serilog.Events;
 using SolidTradeServer.Serilog;
 
 namespace SolidTradeServer
@@ -18,8 +20,8 @@ namespace SolidTradeServer
             Host.CreateDefaultBuilder(args)
                 .ConfigureHostConfiguration(hostConfig =>
                 {
-                    hostConfig.AddJsonFile("appsettings.credentials.json");
                     hostConfig.AddJsonFile("appsettings.json");
+                    hostConfig.AddJsonFile("appsettings.credentials.json");
                     hostConfig.AddEnvironmentVariables();
                 })
                 .UseSerilog((context, configuration) =>
@@ -27,9 +29,11 @@ namespace SolidTradeServer
                     configuration
                         .Enrich.FromLogContext()
                         .Enrich.WithMachineName()
+                        .MinimumLevel.Verbose()
                         .Enrich.With(new SerilogMessageEnricher())
                         .WriteTo.Console(
-                            outputTemplate: "{Timestamp:HH:mm:ss} [{Level:u3}] {SourceContext} - {Message:lj}{NewLine}{Exception}")
+                            outputTemplate: "{Timestamp:HH:mm:ss} [{Level:u3}] {SourceContext} - {Message:lj}{NewLine}{Exception}",
+                            restrictedToMinimumLevel: LogEventLevel.Information)
                         .WriteTo.Elasticsearch(
                             new ElasticsearchSinkOptions(new Uri(context.Configuration["ElasticConfiguration:Uri"]))
                             {
@@ -41,10 +45,14 @@ namespace SolidTradeServer
                                 AutoRegisterTemplate = true,
                                 NumberOfShards = 2,
                                 NumberOfReplicas = 1,
+                                MinimumLogEventLevel = LogEventLevel.Debug,
                             })
                         .Enrich.WithProperty("Environment", context.HostingEnvironment.EnvironmentName)
                         .ReadFrom.Configuration(context.Configuration);
                 })
                 .ConfigureWebHostDefaults(webBuilder => { webBuilder.UseStartup<Startup>(); });
+
+        public static void ExitApplication()
+        => Environment.Exit(-1);
     }
 }

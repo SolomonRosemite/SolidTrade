@@ -44,10 +44,11 @@ namespace SolidTradeServer
                 options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
             });
 
+            services.AddSingleton<CommonService>();
             services.AddSingleton<CloudinaryService>();
             services.AddSingleton<TradeRepublicApiService>();
             services.AddSingleton<ICacheService, CacheService>();
-            
+
             services.AddTransient<UserService>();
             services.AddTransient<WarrantService>();
             services.AddTransient<PortfolioService>();

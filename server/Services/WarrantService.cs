@@ -35,7 +35,6 @@ namespace SolidTradeServer.Services
 
         public async Task<OneOf<WarrantPositionResponseDto, ErrorResponse>> GetWarrant(int id, string uid)
         {
-            // Todo: Test if this is too expensive.
             var user = _database.WarrantPositions.FirstOrDefault(w => w.Id == id)?.Portfolio.User;
 
             if (user is null)
@@ -102,7 +101,6 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.PaymentRequired);
             }
             
-            // Todo: Also for the ongoing order. When to order get a fill check first if the balance is sufficient.
             var warrant = new WarrantPosition
             {
                 Isin = CommonService.CleanIsin(dto.WarrantIsin),

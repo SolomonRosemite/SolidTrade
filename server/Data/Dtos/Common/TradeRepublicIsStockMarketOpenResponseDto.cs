@@ -2,6 +2,7 @@
 {
     public class TradeRepublicIsStockMarketOpenResponseDto
     {
-        public bool? Open { get; set; }
+        public long ExpectedCloseTime { get; init; }
+        public bool? Open { get; init; }
     }
 }

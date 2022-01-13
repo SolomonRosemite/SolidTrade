@@ -4,6 +4,7 @@
     {
         Complete,
         WaitingForFill,
+        PositionsAlreadyClosed,
         Failed,
     }
 }

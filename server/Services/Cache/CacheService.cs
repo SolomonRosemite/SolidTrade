@@ -28,14 +28,13 @@ namespace SolidTradeServer.Services.Cache
         public CacheEntry<T> GetCachedValue<T>(string identifier)
         {
             var cache = _cache[GetCacheKey(typeof(T), identifier)];
-            if (cache == null)
-                return new CacheEntry<T> { Expired = true, Value = default, };
-
-            return new CacheEntry<T> { Expired = false, Value = (T)cache, };
+            var isExpired = cache is null;
+            
+            return new CacheEntry<T> { Expired = isExpired, Value = isExpired ?  default : (T)cache, };
         }
 
         /// <inheritdoc/>
-        public void SetCachedValue<T>(string identifier, object value) => _cache.Set(GetCacheKey(typeof(T), identifier), value, _cachePolicy);
+        public void SetCachedValue<T>(string identifier, T value) => _cache.Set(GetCacheKey(typeof(T), identifier), value, _cachePolicy);
 
         private static string GetCacheKey(Type type, string identifier) => type.Name + "_" + identifier;
 

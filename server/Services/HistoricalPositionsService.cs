@@ -47,7 +47,6 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.Unauthorized);
             }
 
-            // Todo: We shouldn't fetch all historical positions. Its probably better to use something like pagination.
             var historicalPositions = await _database.HistoricalPositions
                 .AsQueryable()
                 .Where(p => p.UserId == userId)

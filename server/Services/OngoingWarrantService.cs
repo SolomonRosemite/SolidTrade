@@ -35,7 +35,6 @@ namespace SolidTradeServer.Services
 
         public async Task<OneOf<OngoingWarrantPositionResponseDto, ErrorResponse>> GetOngoingWarrant(int id, string uid)
         {
-            // Todo: Test if this is too expensive.
             var user = _database.OngoingWarrantPositions.FirstOrDefault(w => w.Id == id)?.Portfolio.User;
 
             if (user is null)
@@ -73,6 +72,7 @@ namespace SolidTradeServer.Services
         public async Task<OneOf<OngoingWarrantPositionResponseDto, ErrorResponse>> OpenOngoingWarrant(OngoingPositionRequestDto dto, string uid)
         {
             var cleanIsin = CommonService.CleanIsin(dto.Isin);
+
             var requestString = "{\"type\":\"ticker\",\"id\":\"" + dto.Isin + "\"}";
 
             if ((await IsStockMarketOpen(dto.Isin)).TryPickT1(out var errorResponse1, out _))
@@ -107,7 +107,7 @@ namespace SolidTradeServer.Services
                 Isin = cleanIsin,
                 Portfolio = user.Portfolio,
                 Type = dto.Type!.Value,
-                GoodUntil = dto.GoodUntil!.Value,
+                GoodUntil = dto.GoodUntil!.Value,                                                                                                                                                                  
                 CurrentWarrantPosition = existingWarrant,
                 NumberOfShares = dto.NumberOfShares,
                 Price = dto.PriceThreshold,
@@ -115,17 +115,10 @@ namespace SolidTradeServer.Services
 
             try
             {
-                _database.OngoingWarrantPositions.Add(ongoingWarrant);
+                var entity = _database.OngoingWarrantPositions.Add(ongoingWarrant);
                 await _database.SaveChangesAsync();
                 
-                _trApiService.AddRequest<TradeRepublicProductPriceResponseDto>(requestString, value =>
-                {
-                    Thread.Sleep(1000 * 10);
-                    
-                    // throw new Exception("Test");
-                    
-                    return OngoingTradeResponse.Complete;
-                });
+                _trApiService.AddOngoingRequestRequest(dto.Isin, PositionType.Warrant, entity.Entity.Id);
 
                 return _mapper.Map<OngoingWarrantPositionResponseDto>(ongoingWarrant);
             }
@@ -141,13 +134,43 @@ namespace SolidTradeServer.Services
             }
         }
 
-        // public async Task<OneOf<OngoingWarrantPositionResponseDto, ErrorResponse>> CloseOngoingWarrant(OngoingPositionRequestDto dto, string uid)
-        // {
-        //     if ((await IsStockMarketOpen(dto.Isin)).TryPickT1(out var errorResponse1, out _))
-        //         return errorResponse1;
-        //     
-        //     
-        // }
+        public async Task<OneOf<OngoingWarrantPositionResponseDto, ErrorResponse>> CloseOngoingWarrant(CloseOngoingPositionRequestDto dto, string uid)
+        {
+            var warrant = await _database.OngoingWarrantPositions.AsQueryable()
+                .FirstOrDefaultAsync(w => w.Id == dto.Id && w.Portfolio.User.Uid == uid);
+
+            if (warrant is null)
+            {
+                return new ErrorResponse(new NotFound
+                {
+                    Title = "Unable to delete ongoing trade",
+                    Message = $"The warrant with id: {dto.Id} could not be found or the user does not own this ongoing warrant.",
+                    UserFriendlyMessage = "Could not remove warrant. The warrant might already been filled.",
+                    AdditionalData = new { dto, uid }
+                }, HttpStatusCode.BadRequest);
+            }
+            
+            try
+            {
+                // Todo: Maybe add this also to the historical positions (as info)
+                
+                _database.OngoingWarrantPositions.Remove(warrant);
+                
+                await _database.SaveChangesAsync();
+                return _mapper.Map<OngoingWarrantPositionResponseDto>(warrant);
+            }
+            catch (Exception e)
+            {
+                return new ErrorResponse(new UnexpectedError
+                {
+                    Title = "Could remove ongoing warrant",
+                    Message = "Failed to close position.",
+                    Exception = e,
+                    UserFriendlyMessage = "Something went very wrong. Please try again later.",
+                    AdditionalData = new { dto, uid, warrant },
+                }, HttpStatusCode.InternalServerError);
+            }
+        }
         
         private async Task<OneOf<Success, ErrorResponse>> IsStockMarketOpen(string isin)
         {
