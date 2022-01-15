@@ -3,15 +3,17 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SolidTradeServer.Data.Common;
 
 namespace SolidTradeServer.Migrations
 {
     [DbContext(typeof(DbSolidTrade))]
-    partial class DbSolidTradeModelSnapshot : ModelSnapshot
+    [Migration("20220115215556_AddStockPositionsToPortfolioEntity")]
+    partial class AddStockPositionsToPortfolioEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -437,7 +439,7 @@ namespace SolidTradeServer.Migrations
             modelBuilder.Entity("SolidTradeServer.Data.Entities.StockPosition", b =>
                 {
                     b.HasOne("SolidTradeServer.Data.Entities.Portfolio", "Portfolio")
-                        .WithMany("StockPositions")
+                        .WithMany("StockPositionsPositions")
                         .HasForeignKey("PortfolioId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -464,7 +466,7 @@ namespace SolidTradeServer.Migrations
 
                     b.Navigation("OngoingWarrantPositions");
 
-                    b.Navigation("StockPositions");
+                    b.Navigation("StockPositionsPositions");
 
                     b.Navigation("WarrantPositions");
                 });

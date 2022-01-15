@@ -1,6 +1,4 @@
 ﻿using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
-using System.ComponentModel.DataAnnotations.Schema;
 using SolidTradeServer.Data.Entities.Common;
 
 namespace SolidTradeServer.Data.Entities
@@ -13,6 +11,7 @@ namespace SolidTradeServer.Data.Entities
         public decimal Balance { get; set; }
         public decimal InitialBalance { get; set; }
         
+        public ICollection<StockPosition> StockPositions { get; set; }
         public ICollection<WarrantPosition> WarrantPositions { get; set; }
         public ICollection<KnockoutPosition> KnockOutPositions { get; set; }
         public ICollection<OngoingWarrantPosition> OngoingWarrantPositions { get; set; }

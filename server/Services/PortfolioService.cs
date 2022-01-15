@@ -27,6 +27,7 @@ namespace SolidTradeServer.Services
             var query = _database.Portfolios
                 .Include(p => p.User)
                 .Include(p => p.WarrantPositions)
+                .Include(p => p.StockPositions)
                 .Include(p => p.KnockOutPositions);
 
             if (dto.IncludeOngoingPositions)

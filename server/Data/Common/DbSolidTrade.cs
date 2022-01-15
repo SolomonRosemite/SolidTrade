@@ -23,6 +23,7 @@ namespace SolidTradeServer.Data.Common
         public DbSet<HistoricalPosition> HistoricalPositions { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<Portfolio> Portfolios { get; set; }
+        public DbSet<StockPosition> StockPositions { get; set; }
         public DbSet<WarrantPosition> WarrantPositions { get; set; }
         public DbSet<KnockoutPosition> KnockoutPositions { get; set; }
         public DbSet<OngoingWarrantPosition> OngoingWarrantPositions { get; set; }

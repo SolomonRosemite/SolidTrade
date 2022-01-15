@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using OneOf;
 using Serilog;
 using SolidTradeServer.Data.Common;
-using SolidTradeServer.Data.Dtos.Warrant.TradeRepublic;
+using SolidTradeServer.Data.Dtos.TradeRepublic;
 using SolidTradeServer.Data.Entities;
 using SolidTradeServer.Data.Models.Common.Position;
 using SolidTradeServer.Data.Models.Enums;

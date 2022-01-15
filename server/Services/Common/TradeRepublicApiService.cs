@@ -11,7 +11,7 @@ using OneOf;
 using Serilog;
 using SolidTradeServer.Common;
 using SolidTradeServer.Data.Dtos.Common;
-using SolidTradeServer.Data.Dtos.Warrant.TradeRepublic;
+using SolidTradeServer.Data.Dtos.TradeRepublic;
 using SolidTradeServer.Data.Models.Enums;
 using SolidTradeServer.Data.Models.Errors;
 using WebSocketSharp;
@@ -322,6 +322,7 @@ namespace SolidTradeServer.Services.Common
             {
                 PositionType.Warrant => _commonService.HandleOngoingWarrantTradeMessage(value, positionType, productId),
                 PositionType.Knockout => _commonService.HandleOngoingKnockoutTradeMessage(value, positionType, productId),
+                PositionType.Stock => OngoingTradeResponse.Failed,
             };
         }
      }

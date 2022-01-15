@@ -50,6 +50,7 @@ namespace SolidTradeServer
             services.AddSingleton<ICacheService, CacheService>();
 
             services.AddTransient<UserService>();
+            services.AddTransient<StockService>();
             services.AddTransient<WarrantService>();
             services.AddTransient<PortfolioService>();
             services.AddTransient<NotificationService>();

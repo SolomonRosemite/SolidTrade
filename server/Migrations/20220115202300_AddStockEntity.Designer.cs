@@ -3,15 +3,17 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SolidTradeServer.Data.Common;
 
 namespace SolidTradeServer.Migrations
 {
     [DbContext(typeof(DbSolidTrade))]
-    partial class DbSolidTradeModelSnapshot : ModelSnapshot
+    [Migration("20220115202300_AddStockEntity")]
+    partial class AddStockEntity
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -262,7 +264,7 @@ namespace SolidTradeServer.Migrations
                     b.Property<int>("NumberOfShares")
                         .HasColumnType("int");
 
-                    b.Property<int>("PortfolioId")
+                    b.Property<int?>("PortfolioId")
                         .HasColumnType("int");
 
                     b.Property<byte[]>("TimeStamp")
@@ -437,10 +439,8 @@ namespace SolidTradeServer.Migrations
             modelBuilder.Entity("SolidTradeServer.Data.Entities.StockPosition", b =>
                 {
                     b.HasOne("SolidTradeServer.Data.Entities.Portfolio", "Portfolio")
-                        .WithMany("StockPositions")
-                        .HasForeignKey("PortfolioId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .WithMany()
+                        .HasForeignKey("PortfolioId");
 
                     b.Navigation("Portfolio");
                 });
@@ -463,8 +463,6 @@ namespace SolidTradeServer.Migrations
                     b.Navigation("OngoingKnockOutPositions");
 
                     b.Navigation("OngoingWarrantPositions");
-
-                    b.Navigation("StockPositions");
 
                     b.Navigation("WarrantPositions");
                 });

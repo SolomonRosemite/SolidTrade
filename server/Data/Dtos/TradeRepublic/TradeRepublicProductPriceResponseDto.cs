@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace SolidTradeServer.Data.Dtos.Warrant.TradeRepublic
+﻿namespace SolidTradeServer.Data.Dtos.TradeRepublic
 {
     public class TradeRepublicProductPriceResponseDto
     {
@@ -12,6 +10,5 @@ namespace SolidTradeServer.Data.Dtos.Warrant.TradeRepublic
     {
         public long Time { get; init; }
         public decimal Price { get; init; }
-        public decimal Size { get; init; }
     }
 }

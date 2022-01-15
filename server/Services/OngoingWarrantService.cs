@@ -10,7 +10,7 @@ using OneOf.Types;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Dtos.OngoingWarrant.Response;
 using SolidTradeServer.Data.Dtos.Shared.OngoingPosition.Request;
-using SolidTradeServer.Data.Dtos.Warrant.TradeRepublic;
+using SolidTradeServer.Data.Dtos.TradeRepublic;
 using SolidTradeServer.Data.Entities;
 using SolidTradeServer.Data.Models.Enums;
 using SolidTradeServer.Data.Models.Errors;
@@ -35,7 +35,8 @@ namespace SolidTradeServer.Services
 
         public async Task<OneOf<OngoingWarrantPositionResponseDto, ErrorResponse>> GetOngoingWarrant(int id, string uid)
         {
-            var user = _database.OngoingWarrantPositions.FirstOrDefault(w => w.Id == id)?.Portfolio.User;
+            var user = await _database.Users.AsQueryable()
+                .FirstOrDefaultAsync(u => u.Portfolio.OngoingWarrantPositions.Any(ow => ow.Id == id));
 
             if (user is null)
             {
