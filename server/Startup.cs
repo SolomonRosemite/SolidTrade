@@ -52,6 +52,7 @@ namespace SolidTradeServer
             services.AddTransient<UserService>();
             services.AddTransient<WarrantService>();
             services.AddTransient<PortfolioService>();
+            services.AddTransient<NotificationService>();
             services.AddTransient<OngoingWarrantService>();
             services.AddTransient<AuthenticationService>();
             services.AddTransient<HistoricalPositionsService>();

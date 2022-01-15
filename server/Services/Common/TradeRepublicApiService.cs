@@ -113,11 +113,6 @@ namespace SolidTradeServer.Services.Common
                 Program.ExitApplication();
             }
         }
-
-        public void TestDisconnect()
-        {
-            _webSocket.Close();
-        }
         
         public async Task<OneOf<T, UnexpectedError>> AddRequest<T>(string content, CancellationToken token)
         {
@@ -167,7 +162,7 @@ namespace SolidTradeServer.Services.Common
             return await tcs.Task;
         }
 
-        private void OnTradeRepublicMessage(object? sender, MessageEventArgs e)
+        private void OnTradeRepublicMessage(object sender, MessageEventArgs e)
         {
             _logger.Information(Constants.LogMessageTemplate, new TradeRepublicMessage
             {
@@ -276,22 +271,13 @@ namespace SolidTradeServer.Services.Common
             return ++_latestId;
         }
 
-        private void SendReconnectMessages()
-        {
-            var ids = new List<int>(_runningRequests.Select(r => r.Key));
-            ids.AddRange(_runningRequestsAsync.Select(r => r.Key));
-            
-            foreach (int id in ids)
-                _webSocket.Send($"sub {id} {_requestBodies[id]}");
-        }
-        
         private void HandleRequestMessage(int id, int productId, PositionType positionType, string message)
         {
             if (ConvertToObject<TradeRepublicProductPriceResponseDto>(message).TryPickT0(out var value, out var err))
             {
                 try
                 {
-                    var result = _commonService.HandleOngoingProductTradeMessage(value, positionType, productId);
+                    var result = GetOngoingTradeResponse(value, positionType, productId);
 
                     switch (result)
                     {
@@ -327,6 +313,16 @@ namespace SolidTradeServer.Services.Common
                 _webSocket.Send($"unsub {id}");
                 _runningRequestsAsync.Remove(id);
             }
+        }
+        
+            
+        private OngoingTradeResponse GetOngoingTradeResponse(TradeRepublicProductPriceResponseDto value, PositionType positionType, int productId)
+        {
+            return positionType switch
+            {
+                PositionType.Warrant => _commonService.HandleOngoingWarrantTradeMessage(value, positionType, productId),
+                PositionType.Knockout => _commonService.HandleOngoingKnockoutTradeMessage(value, positionType, productId),
+            };
         }
      }
 }

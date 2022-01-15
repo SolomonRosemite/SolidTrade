@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using Google.Cloud.Firestore;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -25,11 +24,13 @@ namespace SolidTradeServer.Services.Common
         public static FirestoreDb Firestore { get; set; }
 
         private static readonly ILogger _logger = Log.Logger;
+        private readonly NotificationService _notificationService;
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ICacheService _cache;
 
-        public CommonService(ICacheService cache, IServiceScopeFactory scopeFactory)
+        public CommonService(NotificationService notificationService, ICacheService cache, IServiceScopeFactory scopeFactory)
         {
+            _notificationService = notificationService;
             _scopeFactory = scopeFactory;
             _cache = cache;
         }
@@ -92,10 +93,8 @@ namespace SolidTradeServer.Services.Common
             return (db.OngoingWarrantPositions.ToList(), db.OngoingKnockoutPositions.ToList());
         }
 
-        // Todo: Make this methods usable for knockouts as well.
-        public OngoingTradeResponse HandleOngoingProductTradeMessage(
+        public OngoingTradeResponse HandleOngoingWarrantTradeMessage(
             TradeRepublicProductPriceResponseDto trMessage, PositionType type, int ongoingProductId)
-            // TradeRepublicProductPriceResponseDto dto, PositionType positionType, int ongoingProductId)
         {
             var cachedWarrant = _cache.GetCachedValue<OngoingWarrantPosition>(ongoingProductId.ToString());
         
@@ -116,8 +115,15 @@ namespace SolidTradeServer.Services.Common
             
             if (ongoingProduct is null)
                 return OngoingTradeResponse.PositionsAlreadyClosed;
-        
-            var price = Math.Min(trMessage.Ask.Price, ongoingProduct.Price);
+
+            decimal price;
+            var isBuyOrSell = IsBuyOrSell(ongoingProduct.Type);
+            
+            if (isBuyOrSell == BuyOrSell.Buy)
+                price = Math.Min(trMessage.Ask.Price, ongoingProduct.Price);
+            else
+                price = Math.Max(trMessage.Bid.Price, ongoingProduct.Price);
+            
             var isFulfilled = GetOngoingProductHandler(ongoingProduct.Type, trMessage, price);
         
             if (!isFulfilled)
@@ -131,63 +137,125 @@ namespace SolidTradeServer.Services.Common
                     .Include(p => p.Portfolio)
                     .FirstOrDefault(p => p.Id == ongoingProductId);
         
-                // Double check if the ongoing product is not already closed by the user. There is a chance that the cached value is is not in the database anymore.
+                // Double check if the ongoing product is not already closed by the user. There is a chance that the cached value is not in the database anymore.
                 if (ongoingProduct is null)
-                   // Product is already close (deleted) by the user.
+                   // Product is already closed by the user.
                     return OngoingTradeResponse.PositionsAlreadyClosed;
-
-                var requiredCapital = ongoingProduct.NumberOfShares * price;
-        
-                if (requiredCapital > ongoingProduct.Portfolio.Balance)
-                {
-                    // Todo: User should get alerted if this happens.
-                    _logger.Warning(Constants.LogMessageTemplate, new InsufficientFounds
-                    {
-                        Title = "Not enough buying power",
-                        Message = $"User ongoing product was satisfied but had not sufficient founds. User balance: {ongoingProduct.Portfolio.Balance} but required capital is: {requiredCapital}.",
-                        AdditionalData = new { ProductId = ongoingProductId, Type = type, },
-                    });
-                    return OngoingTradeResponse.Failed;
-                }
                 
-                ongoingProduct.CurrentWarrantPosition ??= database.WarrantPositions
-                    .AsQueryable()
-                    .FirstOrDefault(w => w.Isin == ongoingProduct.Isin && w.Portfolio.Id == ongoingProduct.Portfolio.Id);
+                var totalPrice = ongoingProduct.NumberOfShares * price;
 
-                WarrantPosition warrantPosition = ongoingProduct.CurrentWarrantPosition;
-                if (warrantPosition is not null)
+                if (isBuyOrSell is BuyOrSell.Buy)
                 {
-                    var position = CalculateNewPosition(ongoingProduct.CurrentWarrantPosition, new WarrantPosition
+                    if (totalPrice > ongoingProduct.Portfolio.Balance)
                     {
-                        NumberOfShares = ongoingProduct.NumberOfShares, BuyInPrice = price,
-                    });
+                        var message =
+                            $"User ongoing product was satisfied but had not sufficient founds. User balance: {ongoingProduct.Portfolio.Balance} but required capital is: {totalPrice}.";
+                        
+                        _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position could not be filled",
+                            $"Your {GetOrderName(ongoingProduct.Type)} order could not be executed. {message}");
 
-                    warrantPosition.BuyInPrice = position.BuyInPrice;
-                    warrantPosition.NumberOfShares = position.NumberOfShares;
+                        database.OngoingWarrantPositions.Remove(ongoingProduct);
+                        
+                        _logger.Warning(Constants.LogMessageTemplate, new InsufficientFounds
+                        {
+                            Title = "Not enough buying power",
+                            Message = message,
+                            AdditionalData = new { ProductId = ongoingProductId, Type = type, },
+                        });
 
-                    database.WarrantPositions.Update(warrantPosition);
+                        database.SaveChanges();
+                        return OngoingTradeResponse.Failed;
+                    }
+                    
+                    ongoingProduct.CurrentWarrantPosition ??= database.WarrantPositions
+                        .AsQueryable()
+                        .FirstOrDefault(w => w.Isin == ongoingProduct.Isin && w.Portfolio.Id == ongoingProduct.Portfolio.Id);
+
+                    WarrantPosition warrantPosition = ongoingProduct.CurrentWarrantPosition;
+                    if (warrantPosition is not null)
+                    {
+                        var position = CalculateNewPosition(ongoingProduct.CurrentWarrantPosition, new WarrantPosition
+                        {
+                            NumberOfShares = ongoingProduct.NumberOfShares, BuyInPrice = price,
+                        });
+
+                        warrantPosition.BuyInPrice = position.BuyInPrice;
+                        warrantPosition.NumberOfShares = position.NumberOfShares;
+
+                        database.WarrantPositions.Update(warrantPosition);
+                    }
+                    else
+                    {
+                        warrantPosition = new WarrantPosition
+                        {
+                            Isin = ongoingProduct.Isin,
+                            Portfolio = ongoingProduct.Portfolio,
+                            BuyInPrice = price,
+                            NumberOfShares = ongoingProduct.NumberOfShares,
+                        };
+                        
+                        database.WarrantPositions.Add(warrantPosition);
+                    }
                 }
                 else
                 {
-                    warrantPosition = new WarrantPosition
+                    ongoingProduct.CurrentWarrantPosition ??= database.WarrantPositions
+                        .AsQueryable()
+                        .FirstOrDefault(w => w.Isin == ongoingProduct.Isin && w.Portfolio.Id == ongoingProduct.Portfolio.Id);
+
+                    WarrantPosition warrantPosition = ongoingProduct.CurrentWarrantPosition;
+
+                    if (warrantPosition is null || warrantPosition.NumberOfShares < ongoingProduct.NumberOfShares)
                     {
-                        Isin = ongoingProduct.Isin,
-                        Portfolio = ongoingProduct.Portfolio,
-                        BuyInPrice = price,
-                        NumberOfShares = ongoingProduct.NumberOfShares,
-                    };
+                        var orderName = $"{GetOrderName(ongoingProduct.Type)} order";
+                        const string message = "Order not executed because warrant does not exist anymore or the number of shares are less then the tried to sell.";
+
+                        _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position could not be filled",
+                            $"Your {orderName} could not be executed. {message}");
+                        
+                        _logger.Warning(Constants.LogMessageTemplate, new UnexpectedError
+                        {
+                            Title = "Could not fill position",
+                            Message = message,
+                        });
+                        
+                        database.OngoingWarrantPositions.Remove(ongoingProduct);
+                        database.SaveChanges();
+                        return OngoingTradeResponse.Failed;
+                    }
                     
-                    database.WarrantPositions.Add(warrantPosition);
+                    warrantPosition.NumberOfShares -= ongoingProduct.NumberOfShares;
+
+                    if (warrantPosition.NumberOfShares == 0)
+                        database.WarrantPositions.Remove(warrantPosition);
+                    else
+                        database.WarrantPositions.Update(warrantPosition);
                 }
 
                 database.OngoingWarrantPositions.Remove(ongoingProduct);
 
-                // Todo: Add to history trades
-                // Todo: Notify user. Also send update via firestore.
+                // Todo: Set performance.
+                var historicalPosition = new HistoricalPosition
+                {
+                    BuyOrSell = isBuyOrSell,
+                    Isin = ongoingProduct.Isin,
+                    Performance = 0,
+                    PositionType = PositionType.Warrant,
+                    UserId = ongoingProduct.Portfolio.UserId,
+                    BuyInPrice = price,
+                    NumberOfShares = ongoingProduct.NumberOfShares,
+                };
+                
+                // Todo: Also send update via firestore.
+                _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position filled", $"Your {GetOrderName(ongoingProduct.Type)} order was executed.");
 
-                ongoingProduct.Portfolio.Balance -= requiredCapital;
+                if (isBuyOrSell is BuyOrSell.Buy)
+                    ongoingProduct.Portfolio.Balance -= totalPrice;
+                else 
+                    ongoingProduct.Portfolio.Balance += totalPrice;
 
                 database.Portfolios.Update(ongoingProduct.Portfolio);
+                database.HistoricalPositions.Add(historicalPosition);
                 
                 database.SaveChanges();
                 return OngoingTradeResponse.Complete;
@@ -196,8 +264,8 @@ namespace SolidTradeServer.Services.Common
             {
                 _logger.Error(Constants.LogMessageTemplate, new UnexpectedError
                 {
-                    Title = "Ongoing trade save failed",
-                    Message = "Failed to save fill of ongoing trade",
+                    Title = "Ongoing trade update failed",
+                    Message = "Failed to process fill of ongoing trade",
                     Exception = e,
                     AdditionalData = new
                     {
@@ -208,6 +276,213 @@ namespace SolidTradeServer.Services.Common
                 });
                 return OngoingTradeResponse.Failed;
             }
+        }
+
+        public OngoingTradeResponse HandleOngoingKnockoutTradeMessage(
+            TradeRepublicProductPriceResponseDto trMessage, PositionType type, int ongoingProductId)
+        {
+            var cachedKnockout = _cache.GetCachedValue<OngoingKnockoutPosition>(ongoingProductId.ToString());
+        
+            OngoingKnockoutPosition ongoingProduct;
+            if (cachedKnockout.Expired)
+            {
+                using (var db = _scopeFactory.CreateScope().ServiceProvider.GetRequiredService<DbSolidTrade>())
+                {
+                    ongoingProduct = db.OngoingKnockoutPositions.Find(ongoingProductId);
+                }
+
+                _cache.SetCachedValue(ongoingProduct.Id.ToString(), ongoingProduct);
+            }
+            else
+            {
+                ongoingProduct = cachedKnockout.Value;
+            }
+            
+            if (ongoingProduct is null)
+                return OngoingTradeResponse.PositionsAlreadyClosed;
+
+            decimal price;
+            var isBuyOrSell = IsBuyOrSell(ongoingProduct.Type);
+            
+            if (isBuyOrSell == BuyOrSell.Buy)
+                price = Math.Min(trMessage.Ask.Price, ongoingProduct.Price);
+            else
+                price = Math.Max(trMessage.Bid.Price, ongoingProduct.Price);
+            
+            var isFulfilled = GetOngoingProductHandler(ongoingProduct.Type, trMessage, price);
+        
+            if (!isFulfilled)
+                return OngoingTradeResponse.WaitingForFill;
+        
+            try
+            {
+                using var database = _scopeFactory.CreateScope().ServiceProvider.GetRequiredService<DbSolidTrade>();
+                
+                ongoingProduct = database.OngoingKnockoutPositions
+                    .Include(p => p.Portfolio)
+                    .FirstOrDefault(p => p.Id == ongoingProductId);
+        
+                // Double check if the ongoing product is not already closed by the user. There is a chance that the cached value is not in the database anymore.
+                if (ongoingProduct is null)
+                   // Product is already closed by the user.
+                    return OngoingTradeResponse.PositionsAlreadyClosed;
+                
+                var totalPrice = ongoingProduct.NumberOfShares * price;
+
+                if (isBuyOrSell is BuyOrSell.Buy)
+                {
+                    if (totalPrice > ongoingProduct.Portfolio.Balance)
+                    {
+                        var message =
+                            $"User ongoing product was satisfied but had not sufficient founds. User balance: {ongoingProduct.Portfolio.Balance} but required capital is: {totalPrice}.";
+                        
+                        _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position could not be filled",
+                            $"Your {GetOrderName(ongoingProduct.Type)} order could not be executed. {message}");
+
+                        database.OngoingKnockoutPositions.Remove(ongoingProduct);
+                        
+                        _logger.Warning(Constants.LogMessageTemplate, new InsufficientFounds
+                        {
+                            Title = "Not enough buying power",
+                            Message = message,
+                            AdditionalData = new { ProductId = ongoingProductId, Type = type, },
+                        });
+
+                        database.SaveChanges();
+                        return OngoingTradeResponse.Failed;
+                    }
+                    
+                    ongoingProduct.CurrentKnockoutPosition ??= database.KnockoutPositions
+                        .AsQueryable()
+                        .FirstOrDefault(w => w.Isin == ongoingProduct.Isin && w.Portfolio.Id == ongoingProduct.Portfolio.Id);
+
+                    KnockoutPosition knockoutPosition = ongoingProduct.CurrentKnockoutPosition;
+                    if (knockoutPosition is not null)
+                    {
+                        var position = CalculateNewPosition(ongoingProduct.CurrentKnockoutPosition, new KnockoutPosition
+                        {
+                            NumberOfShares = ongoingProduct.NumberOfShares, BuyInPrice = price,
+                        });
+
+                        knockoutPosition.BuyInPrice = position.BuyInPrice;
+                        knockoutPosition.NumberOfShares = position.NumberOfShares;
+
+                        database.KnockoutPositions.Update(knockoutPosition);
+                    }
+                    else
+                    {
+                        knockoutPosition = new KnockoutPosition
+                        {
+                            Isin = ongoingProduct.Isin,
+                            Portfolio = ongoingProduct.Portfolio,
+                            BuyInPrice = price,
+                            NumberOfShares = ongoingProduct.NumberOfShares,
+                        };
+                        
+                        database.KnockoutPositions.Add(knockoutPosition);
+                    }
+                }
+                else
+                {
+                    ongoingProduct.CurrentKnockoutPosition ??= database.KnockoutPositions
+                        .AsQueryable()
+                        .FirstOrDefault(w => w.Isin == ongoingProduct.Isin && w.Portfolio.Id == ongoingProduct.Portfolio.Id);
+
+                    KnockoutPosition knockoutPosition = ongoingProduct.CurrentKnockoutPosition;
+
+                    if (knockoutPosition is null || knockoutPosition.NumberOfShares < ongoingProduct.NumberOfShares)
+                    {
+                        var orderName = $"{GetOrderName(ongoingProduct.Type)} order";
+                        const string message = "Order not executed because knockout does not exist anymore or the number of shares are less then the tried to sell.";
+
+                        _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position could not be filled",
+                            $"Your {orderName} could not be executed. {message}");
+                        
+                        _logger.Warning(Constants.LogMessageTemplate, new UnexpectedError
+                        {
+                            Title = "Could not fill position",
+                            Message = message,
+                        });
+                        
+                        database.OngoingKnockoutPositions.Remove(ongoingProduct);
+                        database.SaveChanges();
+                        return OngoingTradeResponse.Failed;
+                    }
+                    
+                    knockoutPosition.NumberOfShares -= ongoingProduct.NumberOfShares;
+
+                    if (knockoutPosition.NumberOfShares == 0)
+                        database.KnockoutPositions.Remove(knockoutPosition);
+                    else
+                        database.KnockoutPositions.Update(knockoutPosition);
+                }
+
+                database.OngoingKnockoutPositions.Remove(ongoingProduct);
+
+                // Todo: Set performance.
+                var historicalPosition = new HistoricalPosition
+                {
+                    BuyOrSell = isBuyOrSell,
+                    Isin = ongoingProduct.Isin,
+                    Performance = 0,
+                    PositionType = PositionType.Knockout,
+                    UserId = ongoingProduct.Portfolio.UserId,
+                    BuyInPrice = price,
+                    NumberOfShares = ongoingProduct.NumberOfShares,
+                };
+                
+                // Todo: Also send update via firestore.
+                _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position filled", $"Your {GetOrderName(ongoingProduct.Type)} order was executed.");
+
+                if (isBuyOrSell is BuyOrSell.Buy)
+                    ongoingProduct.Portfolio.Balance -= totalPrice;
+                else 
+                    ongoingProduct.Portfolio.Balance += totalPrice;
+
+                database.Portfolios.Update(ongoingProduct.Portfolio);
+                database.HistoricalPositions.Add(historicalPosition);
+                
+                database.SaveChanges();
+                return OngoingTradeResponse.Complete;
+            }
+            catch (Exception e)
+            {
+                _logger.Error(Constants.LogMessageTemplate, new UnexpectedError
+                {
+                    Title = "Ongoing trade update failed",
+                    Message = "Failed to process fill of ongoing trade",
+                    Exception = e,
+                    AdditionalData = new
+                    {
+                        TradeRepubmucMessage = trMessage,
+                        OngoingProductId = ongoingProductId,
+                        Type = type,
+                    },
+                });
+                return OngoingTradeResponse.Failed;
+            }
+        }
+
+        private string GetOrderName(EnterOrExitPositionType type)
+        {
+            return type switch
+            {
+                EnterOrExitPositionType.BuyLimitOrder => "buy limit",
+                EnterOrExitPositionType.BuyStopOrder => "buy stop",
+                EnterOrExitPositionType.SellLimitOrder => "take profit",
+                EnterOrExitPositionType.SellStopOrder => "stop loss",
+            };
+        }
+
+        private BuyOrSell IsBuyOrSell(EnterOrExitPositionType type)
+        {
+            return type switch
+            {
+                EnterOrExitPositionType.BuyLimitOrder => BuyOrSell.Buy,
+                EnterOrExitPositionType.BuyStopOrder => BuyOrSell.Buy,
+                EnterOrExitPositionType.SellLimitOrder => BuyOrSell.Sell,
+                EnterOrExitPositionType.SellStopOrder => BuyOrSell.Sell,
+            };
         }
     }
 }

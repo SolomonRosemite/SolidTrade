@@ -15,6 +15,7 @@ namespace SolidTradeServer
         public static void Main(string[] args)
         => CreateHostBuilder(args).Build().Run();
 
+        // Todo: Maybe add stocks as well.
         // Todo: Improve logging in all services.
         private static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
