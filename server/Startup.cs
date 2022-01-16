@@ -3,6 +3,9 @@ using System.Text.Json.Serialization;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
 using Google.Cloud.Firestore;
+using Hangfire;
+using Hangfire.Dashboard.BasicAuthorization;
+using Hangfire.MemoryStorage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
@@ -18,6 +21,7 @@ using SolidTradeServer.Data.Models.Converters;
 using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Filters;
 using SolidTradeServer.Services;
+using SolidTradeServer.Services.Background;
 using SolidTradeServer.Services.Cache;
 using SolidTradeServer.Services.Common;
 using AuthenticationService = SolidTradeServer.Services.AuthenticationService;
@@ -48,6 +52,7 @@ namespace SolidTradeServer
             services.AddSingleton<CloudinaryService>();
             services.AddSingleton<TradeRepublicApiService>();
             services.AddSingleton<ICacheService, CacheService>();
+            services.AddSingleton<RemoveOngoingExpiredTradesService>();
 
             services.AddTransient<UserService>();
             services.AddTransient<StockService>();
@@ -68,10 +73,18 @@ namespace SolidTradeServer
                 options.JsonSerializerOptions.Converters.Add(new StringRemoveWhitespaceConverter());
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(null, false));
             });
+
+            services.AddHangfire(config =>
+                config.SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
+                    .UseSimpleAssemblyNameTypeSerializer()
+                    .UseDefaultTypeSerializer()
+                    .UseMemoryStorage());
+
+            services.AddHangfireServer();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, ILogger logger)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IRecurringJobManager recurringJobManager, IServiceProvider serviceProvider, ILogger logger)
         {
             if (env.IsDevelopment())
             {
@@ -99,7 +112,37 @@ namespace SolidTradeServer
             {
                 endpoints.MapControllers();
             });
+
+            var filter = new BasicAuthAuthorizationFilter(
+                new BasicAuthAuthorizationFilterOptions
+                {
+                    // Require secure connection for dashboard
+                    RequireSsl = true,
+                    // Case sensitive login checking
+                    LoginCaseSensitive = true,
+                    Users = new[]
+                    {
+                        new BasicAuthAuthorizationUser
+                        {
+                            Login = Configuration["Hangfire:User"],
+                            PasswordClear = Configuration["Hangfire:Password"],
+                        },
+                    }
+                });
             
+            app.UseHangfireDashboard(options: new DashboardOptions
+            {
+                Authorization = new [] { filter }
+            });
+
+            var removeOngoingExpiredTradesService = serviceProvider.GetService<RemoveOngoingExpiredTradesService>();
+
+            if (removeOngoingExpiredTradesService is null)
+                throw new Exception("The service RemoveOngoingExpiredTradesService could not be provided.");
+            
+            recurringJobManager.AddOrUpdate("Remove Ongoing Expired Trades", () => removeOngoingExpiredTradesService.StartAsync(), Cron.Daily);
+            
+            // Insures the trade republic service is being instantiated at the beginning of the application.
             app.ApplicationServices.GetService<TradeRepublicApiService>();
             
             FirebaseApp.Create(new AppOptions

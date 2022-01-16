@@ -2,7 +2,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Mime;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -40,12 +39,10 @@ namespace SolidTradeServer.Services.Common
             _commonService = commonService;
             _webSocket = new WebSocket(configuration["TradeRepublic:ApiEndpoint"]);
             
+            _webSocket.OnMessage += OnTradeRepublicMessage;
             _webSocket.OnOpen += (_, _) =>
             {
-				_lastMessageReceived = DateTime.Now;
                 _webSocket.Send(configuration["TradeRepublic:InitialConnectString"]);
-                _webSocket.OnMessage += OnTradeRepublicMessage;
-
                 Task.Run(async () => await RegisterAllOngoingPosition());
             };
 
@@ -153,8 +150,9 @@ namespace SolidTradeServer.Services.Common
             
             _runningRequests.Add(id, response =>
             {
+                // Todo: Double check if this works as intended.
                 tcs.SetResult(ConvertToObject<TradeRepublicIsStockMarketOpenResponseDto>(response)
-                    .Match<OneOf<bool, UnexpectedError>>(dto => !dto.Open.HasValue || dto.Open.Value, error => error));
+                    .Match<OneOf<bool, UnexpectedError>>(dto => dto.Open.HasValue && dto.Open.Value, error => error));
             });
 
             string content = "{\"type\":\"aggregateHistoryLight\",\"range\":\"1d\",\"id\":\""+ isin + "\"}";

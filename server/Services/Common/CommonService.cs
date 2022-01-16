@@ -113,9 +113,9 @@ namespace SolidTradeServer.Services.Common
                 ongoingProduct = cachedWarrant.Value;
             }
             
-            if (ongoingProduct is null)
+            if (ongoingProduct is null || DateTimeOffset.Now > ongoingProduct.GoodUntil)
                 return OngoingTradeResponse.PositionsAlreadyClosed;
-
+            
             decimal price;
             var isBuyOrSell = IsBuyOrSell(ongoingProduct.Type);
             
@@ -124,7 +124,7 @@ namespace SolidTradeServer.Services.Common
             else
                 price = Math.Max(trMessage.Bid.Price, ongoingProduct.Price);
             
-            var isFulfilled = GetOngoingProductHandler(ongoingProduct.Type, trMessage, price);
+            var isFulfilled = GetOngoingProductHandler(ongoingProduct.Type, trMessage, ongoingProduct.Price);
         
             if (!isFulfilled)
                 return OngoingTradeResponse.WaitingForFill;
@@ -298,9 +298,9 @@ namespace SolidTradeServer.Services.Common
                 ongoingProduct = cachedKnockout.Value;
             }
             
-            if (ongoingProduct is null)
+            if (ongoingProduct is null || DateTimeOffset.Now > ongoingProduct.GoodUntil)
                 return OngoingTradeResponse.PositionsAlreadyClosed;
-
+            
             decimal price;
             var isBuyOrSell = IsBuyOrSell(ongoingProduct.Type);
             
@@ -309,7 +309,7 @@ namespace SolidTradeServer.Services.Common
             else
                 price = Math.Max(trMessage.Bid.Price, ongoingProduct.Price);
             
-            var isFulfilled = GetOngoingProductHandler(ongoingProduct.Type, trMessage, price);
+            var isFulfilled = GetOngoingProductHandler(ongoingProduct.Type, trMessage, ongoingProduct.Price);
         
             if (!isFulfilled)
                 return OngoingTradeResponse.WaitingForFill;
