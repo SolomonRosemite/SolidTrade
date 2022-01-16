@@ -42,6 +42,7 @@ namespace SolidTradeServer.Services.Common
             
             _webSocket.OnOpen += (_, _) =>
             {
+				_lastMessageReceived = DateTime.Now;
                 _webSocket.Send(configuration["TradeRepublic:InitialConnectString"]);
                 _webSocket.OnMessage += OnTradeRepublicMessage;
 
