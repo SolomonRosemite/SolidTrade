@@ -51,8 +51,16 @@ namespace SolidTradeServer.Data.Common
                 .HasMany(u => u.HistoricalPositions)
                 .WithOne()
                 .OnDelete(DeleteBehavior.Cascade);
+            
+            foreach (var property in modelBuilder.Model.GetEntityTypes()
+                .SelectMany(t => t.GetProperties())
+                .Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?)))
+            {
+                property.SetPrecision(18);
+                property.SetScale(4);
+            }
         }
-
+        
         // Updates create at and updated at automatically
         public override int SaveChanges()
         {
