@@ -38,18 +38,19 @@ namespace SolidTradeServer.Services
             _mapper = mapper;
         }
 
-        public async Task<OneOf<UserResponseDto, ErrorResponse>> CreateUser(CreateUserRequestDto data, string uid)
+        public async Task<OneOf<UserResponseDto, ErrorResponse>> CreateUser(CreateUserRequestDto dto, string uid)
         {
             var user = new User
             {
-                Email = data.Email,
+                Bio = $"Hi, I'm {dto.DisplayName} and this is my Portfolio. 👋",
+                Email = dto.Email,
                 Uid = uid,
-                Username = data.Username,
-                DisplayName = data.DisplayName,
+                Username = dto.Username,
+                DisplayName = dto.DisplayName,
                 Portfolio = new Portfolio
                 {
-                    Balance = data.InitialBalance,
-                    InitialBalance = data.InitialBalance,
+                    Balance = dto.InitialBalance,
+                    InitialBalance = dto.InitialBalance,
                 },
                 HistoricalPositions = new List<HistoricalPosition>(),
                 HasPublicPortfolio = true,
@@ -88,7 +89,7 @@ namespace SolidTradeServer.Services
             
             try
             {
-                if ((await CreateUserProfilePictureWithSeed(data.ProfilePictureSeed, uid))
+                if ((await CreateUserProfilePictureWithSeed(dto.ProfilePictureSeed, uid))
                     .TryPickT1(out var err, out var profilePictureUrl))
                 {
                     return new ErrorResponse(err, HttpStatusCode.InternalServerError);
@@ -212,6 +213,7 @@ namespace SolidTradeServer.Services
                 updatedProfilePicture = uri.AbsoluteUri;
             }
 
+            user.Bio = dto.Bio ?? user.Bio;
             user.Email = dto.Email ?? user.Email;
             user.Username = dto.Username ?? user.Username;
             user.DisplayName = dto.DisplayName ?? user.DisplayName;

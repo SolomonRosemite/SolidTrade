@@ -10,6 +10,10 @@ namespace SolidTradeServer.Data.Entities
         public ICollection<HistoricalPosition> HistoricalPositions { get; set; }
         
         [Required]
+        [MaxLength(512)]
+        public string Bio { get; set; }
+        
+        [Required]
         [MaxLength(32)]
         public string Username { get; set; }
                 

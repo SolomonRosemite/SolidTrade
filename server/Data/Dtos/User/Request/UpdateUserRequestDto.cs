@@ -13,6 +13,8 @@ namespace SolidTradeServer.Data.Dtos.User.Request
         
         public string Username { get; init; }
         
+        public string Bio { get; init; }
+        
         public string ProfilePictureSeed { get; init; }
         
         // Size limit 10mb
