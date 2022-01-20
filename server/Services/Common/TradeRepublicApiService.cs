@@ -190,13 +190,14 @@ namespace SolidTradeServer.Services.Common
                 if (oneOfResult.TryPickT1(out var error, out trResponse))
                     return new ErrorResponse(error, HttpStatusCode.InternalServerError);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException e)
             {
                 return new ErrorResponse(new UnexpectedError
                 {
                     Title = "Task timeout",
                     Message = "Fetching product using trade republic api took too long.",
-                    AdditionalData = new { RequestString = requestString }
+                    AdditionalData = new { RequestString = requestString },
+                    Exception = e,
                 }, HttpStatusCode.InternalServerError);
             }
             finally { cts.Dispose(); }
@@ -301,7 +302,7 @@ namespace SolidTradeServer.Services.Common
                 return new UnexpectedError
                 {
                     Title = "Json parsing error",
-                    Message = "Paring Trade Republic message response failed.",
+                    Message = "Parsing Trade Republic message response failed.",
                     Exception = e,
                     AdditionalData = new { Response = content, Type = typeof(T) },
                 };

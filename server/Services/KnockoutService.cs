@@ -80,7 +80,7 @@ namespace SolidTradeServer.Services
                 out var errorResponse2, out var productInfo))
                 return errorResponse2;
 
-            if (productInfo.DerivativeInfo.ProductCategoryName is not ProductCategory.OpenEndTurbo)
+            if (productInfo.DerivativeInfo.ProductCategoryName is ProductCategory.Turbo)
             {
                 const string message = "Product is not Open End Turbo. Only Open End Turbo knockouts can be traded.";
                 return new ErrorResponse(new TradeFailed
@@ -298,13 +298,14 @@ namespace SolidTradeServer.Services
                 if (oneOfResult.TryPickT1(out var error, out trResponse))
                     return new ErrorResponse(error, HttpStatusCode.InternalServerError);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException e)
             {
                 return new ErrorResponse(new UnexpectedError
                 {
                     Title = "Task timeout",
                     Message = "Fetching product using trade republic api took too long.",
-                    AdditionalData = new {dto}
+                    AdditionalData = new {dto},
+                    Exception = e,
                 }, HttpStatusCode.InternalServerError);
             }
             finally { cts.Dispose(); }

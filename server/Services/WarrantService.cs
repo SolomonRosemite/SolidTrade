@@ -300,13 +300,14 @@ namespace SolidTradeServer.Services
                 if (oneOfResult.TryPickT1(out var error, out trResponse))
                     return new ErrorResponse(error, HttpStatusCode.InternalServerError);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException e)
             {
                 return new ErrorResponse(new UnexpectedError
                 {
                     Title = "Task timeout",
                     Message = "Fetching product using trade republic api took too long.",
-                    AdditionalData = new {dto}
+                    AdditionalData = new {dto},
+                    Exception = e,
                 }, HttpStatusCode.InternalServerError);
             }
             finally { cts.Dispose(); }

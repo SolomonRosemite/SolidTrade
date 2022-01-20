@@ -11,26 +11,26 @@ namespace SolidTradeServer.Controllers
     [Route("/knockouts/ongoing")]
     public class OngoingKnockoutController : Controller
     {
-        private readonly OngoingWarrantService _ongoingWarrantService;
+        private readonly OngoingKnockoutService _ongoingKnockoutService;
 
-        public OngoingKnockoutController(OngoingWarrantService ongoingWarrantService)
+        public OngoingKnockoutController(OngoingKnockoutService ongoingKnockoutService)
         {
-            _ongoingWarrantService = ongoingWarrantService;
+            _ongoingKnockoutService = ongoingKnockoutService;
         }
 
         [HttpGet("{id:int}")]
         public async Task<IActionResult> Get(int id)
             => CommonService.MatchResult(
-                await _ongoingWarrantService.GetOngoingWarrant(id, Request.Headers[Constants.UidHeader]));
+                await _ongoingKnockoutService.GetOngoingKnockout(id, Request.Headers[Constants.UidHeader]));
 
         [HttpPost]
         public async Task<IActionResult> OpenOngoingWarrant([FromBody] OngoingPositionRequestDto dto)
             => CommonService.MatchResult(
-                await _ongoingWarrantService.OpenOngoingWarrant(dto, Request.Headers[Constants.UidHeader]));
+                await _ongoingKnockoutService.OpenOngoingKnockout(dto, Request.Headers[Constants.UidHeader]));
 
         [HttpDelete]
         public async Task<IActionResult> CloseOngoingWarrant([FromBody] CloseOngoingPositionRequestDto dto)
             => CommonService.MatchResult(
-                await _ongoingWarrantService.CloseOngoingWarrant(dto, Request.Headers[Constants.UidHeader]));
+                await _ongoingKnockoutService.CloseOngoingKnockout(dto, Request.Headers[Constants.UidHeader]));
     }
 }

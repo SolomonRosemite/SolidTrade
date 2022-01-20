@@ -63,9 +63,9 @@ namespace SolidTradeServer
             services.AddTransient<KnockoutService>();
             services.AddTransient<PortfolioService>();
             services.AddTransient<NotificationService>();
-            // Todo: Add Ongoing knockout service
             services.AddTransient<OngoingWarrantService>();
             services.AddTransient<AuthenticationService>();
+            services.AddTransient<OngoingKnockoutService>();
             services.AddTransient<HistoricalPositionsService>();
             
             services.AddLogging();

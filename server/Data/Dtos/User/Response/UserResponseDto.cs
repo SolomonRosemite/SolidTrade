@@ -18,6 +18,8 @@ namespace SolidTradeServer.Data.Dtos.User.Response
                 
         public string Email { get; set; }
                 
+        public string Bio { get; set; }
+        
         public string Uid { get; set; }
         
         public bool HasPublicPortfolio { get; set; }
