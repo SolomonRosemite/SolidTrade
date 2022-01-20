@@ -2,24 +2,34 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.Json;
+using System.Net;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 using OneOf;
 using Serilog;
 using SolidTradeServer.Common;
-using SolidTradeServer.Data.Dtos.Common;
 using SolidTradeServer.Data.Dtos.TradeRepublic;
+using SolidTradeServer.Data.Models.Common.Log;
 using SolidTradeServer.Data.Models.Enums;
 using SolidTradeServer.Data.Models.Errors;
+using SolidTradeServer.Data.Models.Errors.Common;
 using WebSocketSharp;
+using TradeRepublicProductInfoDto = SolidTradeServer.Data.Dtos.TradeRepublic.TradeRepublicProductInfoDto;
 
 namespace SolidTradeServer.Services.Common
 {
     public class TradeRepublicApiService
     {
-        private readonly JsonSerializerOptions _jsonSerializerOptions = new() { PropertyNameCaseInsensitive = true };
+        private readonly JsonSerializerSettings _jsonSerializerOptions = new()
+        {
+            ContractResolver = new DefaultContractResolver
+            {
+                NamingStrategy = new CamelCaseNamingStrategy()
+            },
+        };
         
         private readonly Dictionary<int, (PositionType, int)> _runningRequestsAsync = new();
         private readonly Dictionary<int, Action<string>> _runningRequests = new();
@@ -65,19 +75,19 @@ namespace SolidTradeServer.Services.Common
             {
                 var (ongoingWarrantPositions, ongoingKnockoutPositions) = _commonService.GetAllOngoingPositions();
 
-                var oneOfExchangeResults = new ConcurrentBag<Task<OneOf<TradeRepublicProduct, UnexpectedError>>>();
+                var oneOfExchangeResults = new ConcurrentBag<Task<OneOf<TradeRepublicProductInfoDto, UnexpectedError>>>();
                 
                 string requestStr;
                 foreach (var warrantPosition in ongoingWarrantPositions)
                 {
                     requestStr = "{\"type\":\"instrument\", \"id\":\"" + warrantPosition.Isin + "\"}";
-                    oneOfExchangeResults.Add(AddRequest<TradeRepublicProduct>(requestStr, CancellationToken.None));
+                    oneOfExchangeResults.Add(AddRequest<TradeRepublicProductInfoDto>(requestStr, CancellationToken.None));
                 }
                 
                 foreach (var knockoutPosition in ongoingKnockoutPositions)
                 {
                     requestStr = "{\"type\":\"instrument\", \"id\":\"" + knockoutPosition.Isin + "\"}";
-                    oneOfExchangeResults.Add(AddRequest<TradeRepublicProduct>(requestStr, CancellationToken.None));
+                    oneOfExchangeResults.Add(AddRequest<TradeRepublicProductInfoDto>(requestStr, CancellationToken.None));
                 }
 
                 var results = await Task.WhenAll(oneOfExchangeResults);
@@ -150,9 +160,14 @@ namespace SolidTradeServer.Services.Common
             
             _runningRequests.Add(id, response =>
             {
-                // Todo: Double check if this works as intended.
                 tcs.SetResult(ConvertToObject<TradeRepublicIsStockMarketOpenResponseDto>(response)
-                    .Match<OneOf<bool, UnexpectedError>>(dto => dto.Open.HasValue && dto.Open.Value, error => error));
+                    .Match<OneOf<bool, UnexpectedError>>(dto =>
+                    {
+                        if (!dto.ExpectedClosingTime.HasValue)
+                            return true;
+
+                        return DateTimeOffset.FromUnixTimeMilliseconds(dto.ExpectedClosingTime.Value) > DateTimeOffset.Now;
+                    }, error => error));
             });
 
             string content = "{\"type\":\"aggregateHistoryLight\",\"range\":\"1d\",\"id\":\""+ isin + "\"}";
@@ -161,12 +176,40 @@ namespace SolidTradeServer.Services.Common
             return await tcs.Task;
         }
 
+        public async Task<OneOf<T, ErrorResponse>> MakeTrRequest<T>(string requestString)
+        {
+            var cts = new CancellationTokenSource();
+            T trResponse;
+            
+            try
+            {
+                cts.CancelAfter(1000 * 8);
+                var oneOfResult =
+                    await AddRequest<T>(requestString, cts.Token);
+
+                if (oneOfResult.TryPickT1(out var error, out trResponse))
+                    return new ErrorResponse(error, HttpStatusCode.InternalServerError);
+            }
+            catch (OperationCanceledException)
+            {
+                return new ErrorResponse(new UnexpectedError
+                {
+                    Title = "Task timeout",
+                    Message = "Fetching product using trade republic api took too long.",
+                    AdditionalData = new { RequestString = requestString }
+                }, HttpStatusCode.InternalServerError);
+            }
+            finally { cts.Dispose(); }
+
+            return trResponse;
+        }
+        
         private void OnTradeRepublicMessage(object sender, MessageEventArgs e)
         {
-            _logger.Information(Constants.LogMessageTemplate, new TradeRepublicMessage
+            _logger.Information("{@TradeRepublicMessage}", new TradeRepublicMessage
             {
                 Title = "Trade Republic api message",
-                Message = e.Data,
+                Content = e.Data,
             });
 
             if (_isReconnect && e.Data == "connected")
@@ -209,7 +252,7 @@ namespace SolidTradeServer.Services.Common
             } else if (_runningRequestsAsync.ContainsKey(id))
             {
                 var (type, productId) = _runningRequestsAsync[id];
-                HandleRequestMessage(id, productId, type, message);
+                HandleRequestMessage(this, id, productId, type, message);
             }
         }
 
@@ -243,7 +286,7 @@ namespace SolidTradeServer.Services.Common
         {
             try
             {
-                var result = JsonSerializer.Deserialize<T>(content, _jsonSerializerOptions);
+                var result = JsonConvert.DeserializeObject<T>(content, _jsonSerializerOptions);
 
                 var isInvalidObject = result!.GetType().GetProperties()
                     .Select(pi => pi.GetValue(result)).All(value => value is null);
@@ -270,13 +313,13 @@ namespace SolidTradeServer.Services.Common
             return ++_latestId;
         }
 
-        private void HandleRequestMessage(int id, int productId, PositionType positionType, string message)
+        private void HandleRequestMessage(TradeRepublicApiService trService, int id, int productId, PositionType positionType, string message)
         {
             if (ConvertToObject<TradeRepublicProductPriceResponseDto>(message).TryPickT0(out var value, out var err))
             {
                 try
                 {
-                    var result = GetOngoingTradeResponse(value, positionType, productId);
+                    var result = GetOngoingTradeResponse(trService, value, positionType, productId);
 
                     switch (result)
                     {
@@ -315,12 +358,12 @@ namespace SolidTradeServer.Services.Common
         }
         
             
-        private OngoingTradeResponse GetOngoingTradeResponse(TradeRepublicProductPriceResponseDto value, PositionType positionType, int productId)
+        private OngoingTradeResponse GetOngoingTradeResponse(TradeRepublicApiService trService, TradeRepublicProductPriceResponseDto value, PositionType positionType, int productId)
         {
             return positionType switch
             {
-                PositionType.Warrant => _commonService.HandleOngoingWarrantTradeMessage(value, positionType, productId),
-                PositionType.Knockout => _commonService.HandleOngoingKnockoutTradeMessage(value, positionType, productId),
+                PositionType.Warrant => _commonService.HandleOngoingWarrantTradeMessage(trService, value, positionType, productId),
+                PositionType.Knockout => _commonService.HandleOngoingKnockoutTradeMessage(trService, value, positionType, productId),
                 PositionType.Stock => OngoingTradeResponse.Failed,
             };
         }

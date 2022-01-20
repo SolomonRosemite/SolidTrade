@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
@@ -21,9 +22,9 @@ using SolidTradeServer.Data.Models.Converters;
 using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Filters;
 using SolidTradeServer.Services;
-using SolidTradeServer.Services.Background;
 using SolidTradeServer.Services.Cache;
 using SolidTradeServer.Services.Common;
+using SolidTradeServer.Services.Jobs;
 using AuthenticationService = SolidTradeServer.Services.AuthenticationService;
 
 namespace SolidTradeServer
@@ -52,13 +53,17 @@ namespace SolidTradeServer
             services.AddSingleton<CloudinaryService>();
             services.AddSingleton<TradeRepublicApiService>();
             services.AddSingleton<ICacheService, CacheService>();
-            services.AddSingleton<RemoveOngoingExpiredTradesService>();
+            services.AddSingleton<RemoveKnockedOutProductsJobsService>();
+            services.AddSingleton<RemoveOngoingExpiredTradeJobsService>();
+            services.AddSingleton<RemoveExpiredWarrantProductsJobsService>();
 
             services.AddTransient<UserService>();
             services.AddTransient<StockService>();
             services.AddTransient<WarrantService>();
+            services.AddTransient<KnockoutService>();
             services.AddTransient<PortfolioService>();
             services.AddTransient<NotificationService>();
+            // Todo: Add Ongoing knockout service
             services.AddTransient<OngoingWarrantService>();
             services.AddTransient<AuthenticationService>();
             services.AddTransient<HistoricalPositionsService>();
@@ -70,6 +75,7 @@ namespace SolidTradeServer
                 options.Filters.Add<AuthenticationFilter>();
             }).AddJsonOptions(options =>
             {
+                options.JsonSerializerOptions.ReadCommentHandling = JsonCommentHandling.Skip;
                 options.JsonSerializerOptions.Converters.Add(new StringRemoveWhitespaceConverter());
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(null, false));
             });
@@ -135,12 +141,24 @@ namespace SolidTradeServer
                 Authorization = new [] { filter }
             });
 
-            var removeOngoingExpiredTradesService = serviceProvider.GetService<RemoveOngoingExpiredTradesService>();
+            var removeOngoingExpiredTradeJobsService = serviceProvider.GetService<RemoveOngoingExpiredTradeJobsService>();
 
-            if (removeOngoingExpiredTradesService is null)
+            if (removeOngoingExpiredTradeJobsService is null)
                 throw new Exception("The service RemoveOngoingExpiredTradesService could not be provided.");
+
+            var removeKnockedOutProductsJobsService = serviceProvider.GetService<RemoveKnockedOutProductsJobsService>();
+
+            if (removeKnockedOutProductsJobsService is null)
+                throw new Exception("The service RemoveOngoingExpiredTradesService could not be provided.");
+
+            var removeExpiredWarrantProductsJobsService = serviceProvider.GetService<RemoveExpiredWarrantProductsJobsService>();
+
+            if (removeExpiredWarrantProductsJobsService is null)
+                throw new Exception("The service RemoveExpiredWarrantProductsJobsService could not be provided.");
             
-            recurringJobManager.AddOrUpdate("Remove Ongoing Expired Trades", () => removeOngoingExpiredTradesService.StartAsync(), Cron.Daily);
+            recurringJobManager.AddOrUpdate("Remove Ongoing expired trades", () => removeOngoingExpiredTradeJobsService.StartAsync(), Cron.Daily);
+            recurringJobManager.AddOrUpdate("Remove Expired warrants", () => removeExpiredWarrantProductsJobsService.StartAsync(), Cron.Weekly(DayOfWeek.Sunday));
+            recurringJobManager.AddOrUpdate("Remove Knocked out products", () => removeKnockedOutProductsJobsService.StartAsync(), Cron.Weekly(DayOfWeek.Sunday));
             
             // Insures the trade republic service is being instantiated at the beginning of the application.
             app.ApplicationServices.GetService<TradeRepublicApiService>();

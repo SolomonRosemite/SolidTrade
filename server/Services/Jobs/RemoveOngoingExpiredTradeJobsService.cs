@@ -8,14 +8,14 @@ using SolidTradeServer.Common;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Models.Errors;
 
-namespace SolidTradeServer.Services.Background
+namespace SolidTradeServer.Services.Jobs
 {
-    public class RemoveOngoingExpiredTradesService
+    public class RemoveOngoingExpiredTradeJobsService
     {
-        private readonly ILogger _logger = Log.ForContext<RemoveOngoingExpiredTradesService>();
+        private readonly ILogger _logger = Log.ForContext<RemoveOngoingExpiredTradeJobsService>();
         private readonly IServiceScopeFactory _scopeFactory;
         
-        public RemoveOngoingExpiredTradesService(IServiceScopeFactory scopeFactory)
+        public RemoveOngoingExpiredTradeJobsService(IServiceScopeFactory scopeFactory)
         {
             _scopeFactory = scopeFactory;
         }

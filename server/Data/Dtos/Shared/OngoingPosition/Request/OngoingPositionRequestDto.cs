@@ -18,7 +18,7 @@ namespace SolidTradeServer.Data.Dtos.Shared.OngoingPosition.Request
         public EnterOrExitPositionType? Type { get; set; }
         
         [Required]
-        [IsFutureDate(ErrorMessage = "Date must be at least till next day.")]
+        [IsFutureDate(ErrorMessage = "Good Until must be future date.")]
         public DateTimeOffset? GoodUntil { get; set; }
         
         [Range(1, int.MaxValue)]

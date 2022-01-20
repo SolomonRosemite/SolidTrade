@@ -9,9 +9,9 @@ using OneOf;
 using OneOf.Types;
 using SolidTradeServer.Common;
 using SolidTradeServer.Data.Common;
+using SolidTradeServer.Data.Dtos.Knockout.Response;
 using SolidTradeServer.Data.Dtos.Shared.Common;
 using SolidTradeServer.Data.Dtos.TradeRepublic;
-using SolidTradeServer.Data.Dtos.Warrant.Response;
 using SolidTradeServer.Data.Entities;
 using SolidTradeServer.Data.Models.Enums;
 using SolidTradeServer.Data.Models.Errors;
@@ -21,23 +21,23 @@ using NotFound = SolidTradeServer.Data.Models.Errors.NotFound;
 
 namespace SolidTradeServer.Services
 {
-    public class WarrantService : IDisposable
+    public class KnockoutService
     {
         private readonly TradeRepublicApiService _trApiService;
         private readonly DbSolidTrade _database;
         private readonly IMapper _mapper;
 
-        public WarrantService(DbSolidTrade database, IMapper mapper, TradeRepublicApiService trApiService)
+        public KnockoutService(DbSolidTrade database, IMapper mapper, TradeRepublicApiService trApiService)
         {
             _trApiService = trApiService;
             _database = database;
             _mapper = mapper;
         }
 
-        public async Task<OneOf<WarrantPositionResponseDto, ErrorResponse>> GetWarrant(int id, string uid)
+        public async Task<OneOf<KnockoutPositionResponseDto, ErrorResponse>> GetKnockout(int id, string uid)
         {
             var user = await _database.Users.AsQueryable()
-                .FirstOrDefaultAsync(u => u.Portfolio.WarrantPositions.Any(w => w.Id == id));
+                .FirstOrDefaultAsync(u => u.Portfolio.KnockOutPositions.Any(w => w.Id == id));
 
             if (user is null)
             {
@@ -57,32 +57,42 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.Unauthorized);
             }
 
-            var warrant = await _database.WarrantPositions.FindAsync(id);
+            var knockoutPosition = await _database.KnockoutPositions.FindAsync(id);
 
-            if (warrant is null)
+            if (knockoutPosition is null)
             {
                 return new ErrorResponse(new NotFound
                 {
-                    Title = "Warrant not found",
-                    Message = $"Warrant with id: {id} could not be found",
+                    Title = "Knockout not found",
+                    Message = $"Knockout with id: {id} could not be found.",
                 }, HttpStatusCode.NotFound);
             }
 
-            return _mapper.Map<WarrantPositionResponseDto>(warrant);
+            return _mapper.Map<KnockoutPositionResponseDto>(knockoutPosition);
         }
 
-        public async Task<OneOf<WarrantPositionResponseDto, ErrorResponse>> BuyWarrant(BuyOrSellRequestDto dto, string uid)
+        public async Task<OneOf<KnockoutPositionResponseDto, ErrorResponse>> BuyKnockout(BuyOrSellRequestDto dto, string uid)
         {
-            var cleanIsin = CommonService.CleanIsin(dto.Isin);
-            
             if ((await IsStockMarketOpen(dto)).TryPickT1(out var errorResponse1, out _))
                 return errorResponse1;
-
-            if ((await MakeTrRequest<TradeRepublicProductInfoDto>(Constants.GetTradeRepublicProductInfoRequestString(cleanIsin), dto)).TryPickT1(
-                out var errorResponse2, out var isActiveResponse))
+            
+            if ((await MakeTrRequest<TradeRepublicProductInfoDto>(Constants.GetTradeRepublicProductInfoRequestString(CommonService.CleanIsin(dto.Isin)), dto)).TryPickT1(
+                out var errorResponse2, out var productInfo))
                 return errorResponse2;
 
-            if (!isActiveResponse.Active!.Value)
+            if (productInfo.DerivativeInfo.ProductCategoryName is not ProductCategory.OpenEndTurbo)
+            {
+                const string message = "Product is not Open End Turbo. Only Open End Turbo knockouts can be traded.";
+                return new ErrorResponse(new TradeFailed
+                {
+                    Title = "Product is not Open End Turbo",
+                    Message = message,
+                    UserFriendlyMessage = message,
+                    AdditionalData = new {Dto = dto}
+                }, HttpStatusCode.BadRequest);
+            }
+            
+            if (!productInfo.Active!.Value)
             {
                 const string message = "Product can not be bought or sold. This might happen if the product is expired or is knocked out.";
                 return new ErrorResponse(new TradeFailed
@@ -90,7 +100,7 @@ namespace SolidTradeServer.Services
                     Title = "Product can not be traded",
                     Message = message,
                     UserFriendlyMessage = message,
-                    AdditionalData = new { Dto = dto }
+                    AdditionalData = new {Dto = dto}
                 }, HttpStatusCode.BadRequest);
             }
             
@@ -119,7 +129,7 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.PaymentRequired);
             }
             
-            var warrant = new WarrantPosition
+            var knockout = new KnockoutPosition
             {
                 Isin = CommonService.CleanIsin(dto.Isin),
                 BuyInPrice = trResponse.Ask.Price,
@@ -130,22 +140,22 @@ namespace SolidTradeServer.Services
             var historicalPositions = new HistoricalPosition
             {
                 BuyOrSell = BuyOrSell.Buy,
-                Isin = warrant.Isin,
+                Isin = knockout.Isin,
                 Performance = -1,
-                PositionType = PositionType.Warrant,
+                PositionType = PositionType.Knockout,
                 UserId = user.Id,
                 BuyInPrice = trResponse.Ask.Price,
                 NumberOfShares = dto.NumberOfShares,
             };
 
-            var (isNew, newWarrant) = await AddOrUpdate(warrant, user.Portfolio.Id);
+            var (isNew, newKnockout) = await AddOrUpdate(knockout, user.Portfolio.Id);
 
             try
             {
                 if (isNew)
-                    newWarrant = _database.WarrantPositions.Add(newWarrant).Entity;
+                    newKnockout = _database.KnockoutPositions.Add(newKnockout).Entity;
                 else
-                    newWarrant = _database.WarrantPositions.Update(newWarrant).Entity;
+                    newKnockout = _database.KnockoutPositions.Update(newKnockout).Entity;
 
                 user.Portfolio.Balance -= totalPrice;
 
@@ -153,7 +163,7 @@ namespace SolidTradeServer.Services
                 _database.HistoricalPositions.Add(historicalPositions);
                 
                 await _database.SaveChangesAsync();
-                return _mapper.Map<WarrantPositionResponseDto>(newWarrant);
+                return _mapper.Map<KnockoutPositionResponseDto>(newKnockout);
             }
             catch (Exception e)
             {
@@ -168,13 +178,13 @@ namespace SolidTradeServer.Services
             }
         }
         
-        public async Task<OneOf<WarrantPositionResponseDto, ErrorResponse>> SellWarrant(BuyOrSellRequestDto dto, string uid)
+        public async Task<OneOf<KnockoutPositionResponseDto, ErrorResponse>> SellKnockout(BuyOrSellRequestDto dto, string uid)
         {
             if ((await IsStockMarketOpen(dto)).TryPickT1(out var errorResponse1, out _))
                 return errorResponse1;
 
             var cleanIsin = CommonService.CleanIsin(dto.Isin);
-            
+
             if ((await MakeTrRequest<TradeRepublicProductInfoDto>(Constants.GetTradeRepublicProductInfoRequestString(cleanIsin), dto)).TryPickT1(
                 out var errorResponse2, out var isActiveResponse))
                 return errorResponse2;
@@ -187,85 +197,75 @@ namespace SolidTradeServer.Services
                     Title = "Product can not be traded",
                     Message = message,
                     UserFriendlyMessage = message,
-                    AdditionalData = new { Dto = dto }
+                    AdditionalData = new {Dto = dto}
                 }, HttpStatusCode.BadRequest);
             }
+
+            if ((await MakeTrRequest<TradeRepublicProductPriceResponseDto>(Constants.GetTradeRepublicProductPriceRequestString(dto.Isin), dto)).TryPickT1(
+                out var errorResponse3, out var trResponse))
+                return errorResponse3;
 
             var user = await _database.Users
                 .Include(u => u.Portfolio)
                 .FirstOrDefaultAsync(u => u.Uid == uid);
 
-            return await SellWarrantInternal(_database, dto, user);
-        }
-
-        public async Task<OneOf<WarrantPositionResponseDto, ErrorResponse>> SellWarrantInternal(DbSolidTrade dbSolidTrade, BuyOrSellRequestDto dto, User userWithPortfolio)
-        {
-            var cleanIsin = CommonService.CleanIsin(dto.Isin);
-            
-            if ((await MakeTrRequest<TradeRepublicProductPriceResponseDto>(Constants.GetTradeRepublicProductPriceRequestString(dto.Isin), dto)).TryPickT1(
-                out var errorResponse3, out var trResponse))
-                return errorResponse3;
-            
             var totalGain = trResponse.Bid.Price * dto.NumberOfShares;
 
-            var warrantPosition = await dbSolidTrade.WarrantPositions.AsQueryable()
+            var knockoutPosition = await _database.KnockoutPositions.AsQueryable()
                 .FirstOrDefaultAsync(w =>
-                    EF.Functions.Like(w.Isin, $"%{cleanIsin}%") && userWithPortfolio.Portfolio.Id == w.Portfolio.Id);
-
-            if (warrantPosition is null)
+                    EF.Functions.Like(w.Isin, $"%{cleanIsin}%") && user.Portfolio.Id == w.Portfolio.Id);
+            
+            if (knockoutPosition is null)
             {
                 return new ErrorResponse(new NotFound
                 {
-                    Title = "Warrant not found",
-                    Message = $"Warrant with isin: {cleanIsin} could not be found.",
-                    AdditionalData = new {Dto = dto}
+                    Title = "Knockout not found",
+                    Message = $"Knockout with isin: {CommonService.CleanIsin(dto.Isin)} could not be found.",
+                    AdditionalData = new { Dto = dto }
                 }, HttpStatusCode.NotFound);
             }
 
-            if (warrantPosition.NumberOfShares < dto.NumberOfShares)
+            if (knockoutPosition.NumberOfShares < dto.NumberOfShares)
             {
                 return new ErrorResponse(new TradeFailed
                 {
                     Title = "Sell failed",
                     Message = "Can't sell more shares than existent",
                     UserFriendlyMessage = "You can't sell more shares than you have.",
-                    AdditionalData = new {Dto = dto, Warrant = _mapper.Map<WarrantPositionResponseDto>(warrantPosition)}
+                    AdditionalData = new { Dto = dto, Knockout = _mapper.Map<KnockoutPositionResponseDto>(knockoutPosition) }
                 }, HttpStatusCode.BadRequest);
             }
-
-            var performance = trResponse.Bid.Price / warrantPosition.BuyInPrice;
-
+            
+            var performance = trResponse.Bid.Price / knockoutPosition.BuyInPrice;
+            
             var historicalPositions = new HistoricalPosition
             {
                 BuyOrSell = BuyOrSell.Sell,
                 Isin = cleanIsin,
                 Performance = performance,
-                PositionType = PositionType.Warrant,
-                UserId = userWithPortfolio.Id,
+                PositionType = PositionType.Knockout,
+                UserId = user.Id,
                 BuyInPrice = trResponse.Bid.Price,
                 NumberOfShares = dto.NumberOfShares,
             };
 
             try
             {
-                userWithPortfolio.Portfolio.Balance += totalGain;
-
-                if (warrantPosition.NumberOfShares == dto.NumberOfShares)
-                    dbSolidTrade.WarrantPositions.Remove(warrantPosition);
+                user.Portfolio.Balance += totalGain;
+                
+                if (knockoutPosition.NumberOfShares == dto.NumberOfShares)
+                    _database.KnockoutPositions.Remove(knockoutPosition);
                 else
                 {
-                    warrantPosition.NumberOfShares -= dto.NumberOfShares;
-                    dbSolidTrade.WarrantPositions.Update(warrantPosition);
+                    knockoutPosition.NumberOfShares -= dto.NumberOfShares;
+                    _database.KnockoutPositions.Update(knockoutPosition);
                 }
 
-                // We save twice here because if we wouldn't the portfolio update would override the warrant position update or remove for some reason.
-                // Saving here insures that the portfolio update doesn't effect any warrants thanks to its timestamp.
-                await dbSolidTrade.SaveChangesAsync();
-
-                dbSolidTrade.Portfolios.Update(userWithPortfolio.Portfolio);
-                dbSolidTrade.HistoricalPositions.Add(historicalPositions);
-                await dbSolidTrade.SaveChangesAsync();
-                return _mapper.Map<WarrantPositionResponseDto>(warrantPosition);
+                _database.Portfolios.Update(user.Portfolio);
+                _database.HistoricalPositions.Add(historicalPositions);
+                
+                await _database.SaveChangesAsync();
+                return _mapper.Map<KnockoutPositionResponseDto>(knockoutPosition);
             }
             catch (Exception e)
             {
@@ -277,9 +277,7 @@ namespace SolidTradeServer.Services
                     UserFriendlyMessage = "Something went very wrong. Please try again later.",
                     AdditionalData = new
                     {
-                        SoldAll = warrantPosition.NumberOfShares == dto.NumberOfShares,
-                        Dto = dto,
-                        UserUid = userWithPortfolio.Uid,
+                        SoldAll = knockoutPosition.NumberOfShares == dto.NumberOfShares, Dto = dto, UserUid = uid,
                         Message = "Maybe there was a problem with the isin?"
                     },
                 }, HttpStatusCode.InternalServerError);
@@ -332,26 +330,21 @@ namespace SolidTradeServer.Services
             return new Success();
         }
 
-        private async Task<(bool, WarrantPosition)> AddOrUpdate(WarrantPosition warrantPosition, int portfolioId)
+        private async Task<(bool, KnockoutPosition)> AddOrUpdate(KnockoutPosition knockoutPosition, int portfolioId)
         {
-            var warrant = await _database.WarrantPositions.AsQueryable()
+            var knockout = await _database.KnockoutPositions.AsQueryable()
                 .FirstOrDefaultAsync(w =>
-                    EF.Functions.Like(w.Isin, $"%{warrantPosition.Isin}%") && portfolioId == w.Portfolio.Id);
+                    EF.Functions.Like(w.Isin, $"%{knockoutPosition.Isin}%") && portfolioId == w.Portfolio.Id);
 
-            if (warrant is null)
-                return (true, warrantPosition);
+            if (knockout is null)
+                return (true, knockoutPosition);
 
-            var position = CommonService.CalculateNewPosition(warrantPosition, warrant);
+            var position = CommonService.CalculateNewPosition(knockoutPosition, knockout);
 
-            warrant.BuyInPrice = position.BuyInPrice;
-            warrant.NumberOfShares = position.NumberOfShares;
+            knockout.BuyInPrice = position.BuyInPrice;
+            knockout.NumberOfShares = position.NumberOfShares;
             
-            return (false, warrant);
-        }
-
-        public void Dispose()
-        {
-            _database.Dispose();
+            return (false, knockout);
         }
     }
 }

@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using SolidTradeServer.Common;
-using SolidTradeServer.Data.Dtos.Warrant.Request;
+using SolidTradeServer.Data.Dtos.Shared.Common;
 using SolidTradeServer.Services;
 using SolidTradeServer.Services.Common;
 
@@ -24,12 +24,12 @@ namespace SolidTradeServer.Controllers
                 await _warrantService.GetWarrant(id, Request.Headers[Constants.UidHeader]));
 
         [HttpPost]
-        public async Task<IActionResult> BuyWarrant([FromBody] BuyOrSellWarrantRequestDto dto)
+        public async Task<IActionResult> BuyWarrant([FromBody] BuyOrSellRequestDto dto)
             => CommonService.MatchResult(
                 await _warrantService.BuyWarrant(dto, Request.Headers[Constants.UidHeader]));
 
         [HttpDelete]
-        public async Task<IActionResult> SellWarrant([FromBody] BuyOrSellWarrantRequestDto dto)
+        public async Task<IActionResult> SellWarrant([FromBody] BuyOrSellRequestDto dto)
             => CommonService.MatchResult(
                 await _warrantService.SellWarrant(dto, Request.Headers[Constants.UidHeader]));
     }

@@ -7,15 +7,13 @@ namespace SolidTradeServer.Data.Models.Annotations
     {
         public override bool IsValid(object value)
         {
-            var now = DateTimeOffset.UtcNow;
-            var min = now.AddHours(24 - now.Hour);
-
             if (value is null)
                 return false;
             
+            var now = DateTimeOffset.Now;
             var dt = (DateTimeOffset) value;
-            
-            return dt >= min;
+
+            return dt >= now;
         }
     }
 }

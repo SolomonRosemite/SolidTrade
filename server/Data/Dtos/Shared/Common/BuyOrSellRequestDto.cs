@@ -1,11 +1,11 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace SolidTradeServer.Data.Dtos.Warrant.Request
+namespace SolidTradeServer.Data.Dtos.Shared.Common
 {
-    public class BuyOrSellWarrantRequestDto
+    public class BuyOrSellRequestDto
     {
         [Required]
-        public string WarrantIsin { get; init; }
+        public string Isin { get; init; }
         
         [Required]
         [Range(1, int.MaxValue)]

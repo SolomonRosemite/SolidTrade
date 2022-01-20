@@ -26,15 +26,15 @@ namespace SolidTradeServer.Services
 
             return Task.CompletedTask;
             // Todo: Fix exception.
-            return _fireMessaging.SendAsync(new Message
-            {
-                Token = registrationToken,
-                Data = data,
-                Android =
-                {
-                    Priority = Priority.Normal,
-                },
-            });
+            // return _fireMessaging.SendAsync(new Message
+            // {
+            //     Token = registrationToken,
+            //     Data = data,
+            //     Android =
+            //     {
+            //         Priority = Priority.Normal,
+            //     },
+            // });
         }
     }
 }

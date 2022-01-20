@@ -13,9 +13,10 @@ namespace SolidTradeServer
     public static class Program
     {
         public static void Main(string[] args)
-        => CreateHostBuilder(args).Build().Run();
+           => CreateHostBuilder(args).Build().Run();
 
         // Todo: Improve logging in all services.
+        // Todo: See if all methods works as indented.
         private static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
                 .ConfigureHostConfiguration(hostConfig =>

@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 using Google.Cloud.Firestore;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -93,7 +96,7 @@ namespace SolidTradeServer.Services.Common
             return (db.OngoingWarrantPositions.ToList(), db.OngoingKnockoutPositions.ToList());
         }
 
-        public OngoingTradeResponse HandleOngoingWarrantTradeMessage(
+        public OngoingTradeResponse HandleOngoingWarrantTradeMessage(TradeRepublicApiService trService, 
             TradeRepublicProductPriceResponseDto trMessage, PositionType type, int ongoingProductId)
         {
             var cachedWarrant = _cache.GetCachedValue<OngoingWarrantPosition>(ongoingProductId.ToString());
@@ -129,6 +132,46 @@ namespace SolidTradeServer.Services.Common
             if (!isFulfilled)
                 return OngoingTradeResponse.WaitingForFill;
         
+            OneOf<TradeRepublicProductInfoDto, ErrorResponse> oneOfResult;
+
+            try
+            {
+                oneOfResult = MakeTrRequest<TradeRepublicProductInfoDto>(trService, 
+                    Constants.GetTradeRepublicProductInfoRequestString(ongoingProduct.Isin)).GetAwaiter().GetResult();
+            }
+            catch (Exception e)
+            {
+                _logger.Error(Constants.LogMessageTemplate, new UnexpectedError
+                {
+                    Title = "Unable to make Trade Republic request",
+                    Message = "Unexpect error when trying to make trade republic request.",
+                    AdditionalData = new { Isin = ongoingProduct.Isin },
+                    Exception = e,
+                });
+                return OngoingTradeResponse.WaitingForFill;
+            }
+            
+            if (oneOfResult.TryPickT1(out var errorResponse, out var isActiveResponse))
+            {
+                _logger.Error(Constants.LogMessageTemplate, errorResponse);
+                return OngoingTradeResponse.WaitingForFill;
+            }
+
+            if (!isActiveResponse.Active!.Value)
+            {
+                // Todo: Notify user.
+                const string message = "Ongoing product can not be bought or sold. This might happen if the product is expired or is knocked out.";
+                var err = new TradeFailed
+                {
+                    Title = "Product can not be traded",
+                    Message = message,
+                    UserFriendlyMessage = message,
+                    AdditionalData = new { Dto = ongoingProduct.Isin }
+                };
+                _logger.Error(Constants.LogMessageTemplate, err);
+                return OngoingTradeResponse.Failed;
+            }
+            
             try
             {
                 using var database = _scopeFactory.CreateScope().ServiceProvider.GetRequiredService<DbSolidTrade>();
@@ -143,7 +186,8 @@ namespace SolidTradeServer.Services.Common
                     return OngoingTradeResponse.PositionsAlreadyClosed;
                 
                 var totalPrice = ongoingProduct.NumberOfShares * price;
-
+                HistoricalPosition historicalPosition;
+                
                 if (isBuyOrSell is BuyOrSell.Buy)
                 {
                     if (totalPrice > ongoingProduct.Portfolio.Balance)
@@ -196,6 +240,17 @@ namespace SolidTradeServer.Services.Common
                         
                         database.WarrantPositions.Add(warrantPosition);
                     }
+                    
+                    historicalPosition = new HistoricalPosition
+                    {
+                        BuyOrSell = isBuyOrSell,
+                        Isin = ongoingProduct.Isin,
+                        Performance = -1,
+                        PositionType = PositionType.Warrant,
+                        UserId = ongoingProduct.Portfolio.UserId,
+                        BuyInPrice = price,
+                        NumberOfShares = ongoingProduct.NumberOfShares,
+                    };
                 }
                 else
                 {
@@ -225,7 +280,18 @@ namespace SolidTradeServer.Services.Common
                     }
                     
                     warrantPosition.NumberOfShares -= ongoingProduct.NumberOfShares;
-
+                    
+                    historicalPosition = new HistoricalPosition
+                    {
+                        BuyOrSell = isBuyOrSell,
+                        Isin = ongoingProduct.Isin,
+                        Performance = price / warrantPosition.BuyInPrice,
+                        PositionType = PositionType.Warrant,
+                        UserId = ongoingProduct.Portfolio.UserId,
+                        BuyInPrice = price,
+                        NumberOfShares = ongoingProduct.NumberOfShares,
+                    };
+                    
                     if (warrantPosition.NumberOfShares == 0)
                         database.WarrantPositions.Remove(warrantPosition);
                     else
@@ -233,18 +299,6 @@ namespace SolidTradeServer.Services.Common
                 }
 
                 database.OngoingWarrantPositions.Remove(ongoingProduct);
-
-                // Todo: Set performance.
-                var historicalPosition = new HistoricalPosition
-                {
-                    BuyOrSell = isBuyOrSell,
-                    Isin = ongoingProduct.Isin,
-                    Performance = 0,
-                    PositionType = PositionType.Warrant,
-                    UserId = ongoingProduct.Portfolio.UserId,
-                    BuyInPrice = price,
-                    NumberOfShares = ongoingProduct.NumberOfShares,
-                };
                 
                 // Todo: Also send update via firestore.
                 _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position filled", $"Your {GetOrderName(ongoingProduct.Type)} order was executed.");
@@ -278,7 +332,7 @@ namespace SolidTradeServer.Services.Common
             }
         }
 
-        public OngoingTradeResponse HandleOngoingKnockoutTradeMessage(
+        public OngoingTradeResponse HandleOngoingKnockoutTradeMessage(TradeRepublicApiService trService, 
             TradeRepublicProductPriceResponseDto trMessage, PositionType type, int ongoingProductId)
         {
             var cachedKnockout = _cache.GetCachedValue<OngoingKnockoutPosition>(ongoingProductId.ToString());
@@ -326,9 +380,50 @@ namespace SolidTradeServer.Services.Common
                 if (ongoingProduct is null)
                    // Product is already closed by the user.
                     return OngoingTradeResponse.PositionsAlreadyClosed;
+
+                OneOf<TradeRepublicProductInfoDto, ErrorResponse> oneOfResult;
+
+                try
+                {
+                    oneOfResult = MakeTrRequest<TradeRepublicProductInfoDto>(trService,
+                        Constants.GetTradeRepublicProductInfoRequestString(ongoingProduct.Isin)).GetAwaiter().GetResult();
+                }
+                catch (Exception e)
+                {
+                    _logger.Error(Constants.LogMessageTemplate, new UnexpectedError
+                    {
+                        Title = "Unable to make Trade Republic request",
+                        Message = "Unexpect error when trying to make trade republic request.",
+                        AdditionalData = new { Isin = ongoingProduct.Isin },
+                        Exception = e,
+                    });
+                    return OngoingTradeResponse.WaitingForFill;
+                }
+
+                if (oneOfResult.TryPickT1(out var errorResponse, out var isActiveResponse))
+                {
+                    _logger.Error(Constants.LogMessageTemplate, errorResponse);
+                    return OngoingTradeResponse.WaitingForFill;
+                }
+
+                if (!isActiveResponse.Active!.Value)
+                {
+                    // Todo: Notify user.
+                    const string message = "Ongoing product can not be bought or sold. This might happen if the product is expired or is knocked out.";
+                    var err = new TradeFailed
+                    {
+                        Title = "Product can not be traded",
+                        Message = message,
+                        UserFriendlyMessage = message,
+                        AdditionalData = new { Dto = ongoingProduct.Isin }
+                    };
+                    _logger.Error(Constants.LogMessageTemplate, err);
+                    return OngoingTradeResponse.Failed;
+                }
                 
                 var totalPrice = ongoingProduct.NumberOfShares * price;
 
+                HistoricalPosition historicalPosition;
                 if (isBuyOrSell is BuyOrSell.Buy)
                 {
                     if (totalPrice > ongoingProduct.Portfolio.Balance)
@@ -381,6 +476,17 @@ namespace SolidTradeServer.Services.Common
                         
                         database.KnockoutPositions.Add(knockoutPosition);
                     }
+                    
+                    historicalPosition = new HistoricalPosition
+                    {
+                        BuyOrSell = isBuyOrSell,
+                        Isin = ongoingProduct.Isin,
+                        Performance = -1,
+                        PositionType = PositionType.Knockout,
+                        UserId = ongoingProduct.Portfolio.UserId,
+                        BuyInPrice = price,
+                        NumberOfShares = ongoingProduct.NumberOfShares,
+                    };
                 }
                 else
                 {
@@ -410,6 +516,17 @@ namespace SolidTradeServer.Services.Common
                     }
                     
                     knockoutPosition.NumberOfShares -= ongoingProduct.NumberOfShares;
+                    
+                    historicalPosition = new HistoricalPosition
+                    {
+                        BuyOrSell = isBuyOrSell,
+                        Isin = ongoingProduct.Isin,
+                        Performance = price / knockoutPosition.BuyInPrice,
+                        PositionType = PositionType.Knockout,
+                        UserId = ongoingProduct.Portfolio.UserId,
+                        BuyInPrice = price,
+                        NumberOfShares = ongoingProduct.NumberOfShares,
+                    };
 
                     if (knockoutPosition.NumberOfShares == 0)
                         database.KnockoutPositions.Remove(knockoutPosition);
@@ -418,18 +535,6 @@ namespace SolidTradeServer.Services.Common
                 }
 
                 database.OngoingKnockoutPositions.Remove(ongoingProduct);
-
-                // Todo: Set performance.
-                var historicalPosition = new HistoricalPosition
-                {
-                    BuyOrSell = isBuyOrSell,
-                    Isin = ongoingProduct.Isin,
-                    Performance = 0,
-                    PositionType = PositionType.Knockout,
-                    UserId = ongoingProduct.Portfolio.UserId,
-                    BuyInPrice = price,
-                    NumberOfShares = ongoingProduct.NumberOfShares,
-                };
                 
                 // Todo: Also send update via firestore.
                 _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position filled", $"Your {GetOrderName(ongoingProduct.Type)} order was executed.");
@@ -483,6 +588,34 @@ namespace SolidTradeServer.Services.Common
                 EnterOrExitPositionType.SellLimitOrder => BuyOrSell.Sell,
                 EnterOrExitPositionType.SellStopOrder => BuyOrSell.Sell,
             };
+        }
+        
+        private static async Task<OneOf<T, ErrorResponse>> MakeTrRequest<T>(TradeRepublicApiService trService, string requestString)
+        {
+            var cts = new CancellationTokenSource();
+            T trResponse;
+            
+            try
+            {
+                cts.CancelAfter(1000 * 8);
+                var oneOfResult =
+                    await trService.AddRequest<T>(requestString, cts.Token);
+
+                if (oneOfResult.TryPickT1(out var error, out trResponse))
+                    return new ErrorResponse(error, HttpStatusCode.InternalServerError);
+            }
+            catch (OperationCanceledException)
+            {
+                return new ErrorResponse(new UnexpectedError
+                {
+                    Title = "Task timeout",
+                    Message = "Fetching product using trade republic api took too long.",
+                    AdditionalData = new { requestString }
+                }, HttpStatusCode.InternalServerError);
+            }
+            finally { cts.Dispose(); }
+
+            return trResponse;
         }
     }
 }

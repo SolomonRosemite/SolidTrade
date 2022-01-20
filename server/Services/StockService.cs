@@ -7,8 +7,9 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using OneOf;
 using OneOf.Types;
+using SolidTradeServer.Common;
 using SolidTradeServer.Data.Common;
-using SolidTradeServer.Data.Dtos.Stock.Request;
+using SolidTradeServer.Data.Dtos.Shared.Common;
 using SolidTradeServer.Data.Dtos.Stock.Response;
 using SolidTradeServer.Data.Dtos.TradeRepublic;
 using SolidTradeServer.Data.Entities;
@@ -70,14 +71,12 @@ namespace SolidTradeServer.Services
             return _mapper.Map<StockPositionResponseDto>(stock);
         }
 
-        public async Task<OneOf<StockPositionResponseDto, ErrorResponse>> BuyStock(BuyOrSellStockRequestDto dto, string uid)
+        public async Task<OneOf<StockPositionResponseDto, ErrorResponse>> BuyStock(BuyOrSellRequestDto dto, string uid)
         {
             if ((await IsStockMarketOpen(dto)).TryPickT1(out var errorResponse1, out _))
                 return errorResponse1;
 
-            var requestString = "{\"type\":\"ticker\",\"id\":\"" + dto.StockIsin + "\"}";
-
-            if ((await MakeTrRequest<TradeRepublicProductPriceResponseDto>(requestString, dto)).TryPickT1(
+            if ((await MakeTrRequest<TradeRepublicProductPriceResponseDto>(Constants.GetTradeRepublicProductPriceRequestString(dto.Isin), dto)).TryPickT1(
                 out var errorResponse2, out var trResponse))
                 return errorResponse2;
 
@@ -104,7 +103,7 @@ namespace SolidTradeServer.Services
             
             var stock = new StockPosition
             {
-                Isin = CommonService.CleanIsin(dto.StockIsin),
+                Isin = CommonService.CleanIsin(dto.Isin),
                 BuyInPrice = trResponse.Ask.Price,
                 Portfolio = user.Portfolio,
                 NumberOfShares = dto.NumberOfShares,
@@ -114,7 +113,7 @@ namespace SolidTradeServer.Services
             {
                 BuyOrSell = BuyOrSell.Buy,
                 Isin = stock.Isin,
-                Performance = 0,
+                Performance = -1,
                 PositionType = PositionType.Stock,
                 UserId = user.Id,
                 BuyInPrice = trResponse.Ask.Price,
@@ -151,13 +150,13 @@ namespace SolidTradeServer.Services
             }
         }
         
-        public async Task<OneOf<StockPositionResponseDto, ErrorResponse>> SellStock(BuyOrSellStockRequestDto dto, string uid)
+        public async Task<OneOf<StockPositionResponseDto, ErrorResponse>> SellStock(BuyOrSellRequestDto dto, string uid)
         {
             if ((await IsStockMarketOpen(dto)).TryPickT1(out var errorResponse1, out _))
                 return errorResponse1;
 
-            var cleanIsin = CommonService.CleanIsin(dto.StockIsin);
-            var requestString = "{\"type\":\"ticker\",\"id\":\"" + dto.StockIsin + "\"}";
+            var cleanIsin = CommonService.CleanIsin(dto.Isin);
+            var requestString = "{\"type\":\"ticker\",\"id\":\"" + dto.Isin + "\"}";
 
             if ((await MakeTrRequest<TradeRepublicProductPriceResponseDto>(requestString, dto)).TryPickT1(
                 out var errorResponse2, out var trResponse))
@@ -178,7 +177,7 @@ namespace SolidTradeServer.Services
                 return new ErrorResponse(new NotFound
                 {
                     Title = "Stock not found",
-                    Message = $"Stock with isin: {CommonService.CleanIsin(dto.StockIsin)} could not be found.",
+                    Message = $"Stock with isin: {CommonService.CleanIsin(dto.Isin)} could not be found.",
                     AdditionalData = new { Dto = dto }
                 }, HttpStatusCode.NotFound);
             }
@@ -242,7 +241,7 @@ namespace SolidTradeServer.Services
             }
         }
 
-        private async Task<OneOf<T, ErrorResponse>> MakeTrRequest<T>(string requestString, BuyOrSellStockRequestDto dto)
+        private async Task<OneOf<T, ErrorResponse>> MakeTrRequest<T>(string requestString, BuyOrSellRequestDto dto)
         {
             var cts = new CancellationTokenSource();
             T trResponse;
@@ -270,9 +269,9 @@ namespace SolidTradeServer.Services
             return trResponse;
         }
 
-        private async Task<OneOf<Success, ErrorResponse>> IsStockMarketOpen(BuyOrSellStockRequestDto dto)
+        private async Task<OneOf<Success, ErrorResponse>> IsStockMarketOpen(BuyOrSellRequestDto dto)
         {
-            if ((await _trApiService.IsStockMarketOpen(dto.StockIsin)).TryPickT1(out var unexpectedError, out var isStockMarketOpen))
+            if ((await _trApiService.IsStockMarketOpen(dto.Isin)).TryPickT1(out var unexpectedError, out var isStockMarketOpen))
                 return new ErrorResponse(unexpectedError, HttpStatusCode.InternalServerError);
 
             if (!isStockMarketOpen)
@@ -281,7 +280,7 @@ namespace SolidTradeServer.Services
                 {
                     Title = "Stock market closed",
                     Message = "Tried to trade while stock market was closed.",
-                    UserFriendlyMessage = "The socket market is unfortunately already closed.",
+                    UserFriendlyMessage = "The stock market is unfortunately already closed.",
                 }, HttpStatusCode.FailedDependency);
             }
 

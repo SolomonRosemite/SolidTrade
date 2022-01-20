@@ -8,7 +8,7 @@ namespace SolidTradeServer.Data.Models.Converters
     public class StringRemoveWhitespaceConverter : JsonConverter<string>
     {
         public override string Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        => reader.GetString()?.Trim();
+          => reader.GetString()?.Trim();
 
         public override void Write(Utf8JsonWriter writer, string value, JsonSerializerOptions options)
         {

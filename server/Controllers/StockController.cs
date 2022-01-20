@@ -1,7 +1,7 @@
 ﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using SolidTradeServer.Common;
-using SolidTradeServer.Data.Dtos.Stock.Request;
+using SolidTradeServer.Data.Dtos.Shared.Common;
 using SolidTradeServer.Services;
 using SolidTradeServer.Services.Common;
 
@@ -24,12 +24,12 @@ namespace SolidTradeServer.Controllers
                 await _stockService.GetStock(id, Request.Headers[Constants.UidHeader]));
 
         [HttpPost]
-        public async Task<IActionResult> BuyStock([FromBody] BuyOrSellStockRequestDto dto)
+        public async Task<IActionResult> BuyStock([FromBody] BuyOrSellRequestDto dto)
             => CommonService.MatchResult(
                 await _stockService.BuyStock(dto, Request.Headers[Constants.UidHeader]));
 
         [HttpDelete]
-        public async Task<IActionResult> SellStock([FromBody] BuyOrSellStockRequestDto dto)
+        public async Task<IActionResult> SellStock([FromBody] BuyOrSellRequestDto dto)
             => CommonService.MatchResult(
                 await _stockService.SellStock(dto, Request.Headers[Constants.UidHeader]));
     }

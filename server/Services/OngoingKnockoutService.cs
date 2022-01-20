@@ -7,8 +7,9 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using OneOf;
 using OneOf.Types;
+using SolidTradeServer.Common;
 using SolidTradeServer.Data.Common;
-using SolidTradeServer.Data.Dtos.OngoingWarrant.Response;
+using SolidTradeServer.Data.Dtos.OngoingKnockout.Response;
 using SolidTradeServer.Data.Dtos.Shared.OngoingPosition.Request;
 using SolidTradeServer.Data.Dtos.TradeRepublic;
 using SolidTradeServer.Data.Entities;
@@ -20,23 +21,23 @@ using NotFound = SolidTradeServer.Data.Models.Errors.NotFound;
 
 namespace SolidTradeServer.Services
 {
-    public class OngoingWarrantService
+    public class OngoingKnockoutService
     {
         private readonly TradeRepublicApiService _trApiService;
         private readonly DbSolidTrade _database;
         private readonly IMapper _mapper;
 
-        public OngoingWarrantService(DbSolidTrade database, IMapper mapper, TradeRepublicApiService trApiService)
+        public OngoingKnockoutService(DbSolidTrade database, IMapper mapper, TradeRepublicApiService trApiService)
         {
             _trApiService = trApiService;
             _database = database;
             _mapper = mapper;
         }
 
-        public async Task<OneOf<OngoingWarrantPositionResponseDto, ErrorResponse>> GetOngoingWarrant(int id, string uid)
+        public async Task<OneOf<OngoingKnockoutPositionResponseDto, ErrorResponse>> GetOngoingKnockout(int id, string uid)
         {
             var user = await _database.Users.AsQueryable()
-                .FirstOrDefaultAsync(u => u.Portfolio.OngoingWarrantPositions.Any(ow => ow.Id == id));
+                .FirstOrDefaultAsync(u => u.Portfolio.OngoingKnockOutPositions.Any(ow => ow.Id == id));
 
             if (user is null)
             {
@@ -56,30 +57,28 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.Unauthorized);
             }
 
-            var warrant = await _database.OngoingWarrantPositions.FindAsync(id);
+            var knockout = await _database.OngoingKnockoutPositions.FindAsync(id);
 
-            if (warrant is null)
+            if (knockout is null)
             {
                 return new ErrorResponse(new NotFound
                 {
-                    Title = "Ongoing warrant not found",
-                    Message = $"Ongoing warrant with id: {id} could not be found",
+                    Title = "Ongoing knockout not found",
+                    Message = $"Ongoing knockout with id: {id} could not be found",
                 }, HttpStatusCode.NotFound);
             }
 
-            return _mapper.Map<OngoingWarrantPositionResponseDto>(warrant);
+            return _mapper.Map<OngoingKnockoutPositionResponseDto>(knockout);
         }
         
-        public async Task<OneOf<OngoingWarrantPositionResponseDto, ErrorResponse>> OpenOngoingWarrant(OngoingPositionRequestDto dto, string uid)
+        public async Task<OneOf<OngoingKnockoutPositionResponseDto, ErrorResponse>> OpenOngoingKnockout(OngoingPositionRequestDto dto, string uid)
         {
             var cleanIsin = CommonService.CleanIsin(dto.Isin);
-
-            var requestString = "{\"type\":\"ticker\",\"id\":\"" + dto.Isin + "\"}";
 
             if ((await IsStockMarketOpen(dto.Isin)).TryPickT1(out var errorResponse1, out _))
                 return errorResponse1;
             
-            if ((await MakeTrRequest<TradeRepublicProductPriceResponseDto>(requestString, dto)).TryPickT1(
+            if ((await MakeTrRequest<TradeRepublicProductPriceResponseDto>(Constants.GetTradeRepublicProductPriceRequestString(dto.Isin), dto)).TryPickT1(
                 out var errorResponse2, out var trResponse))
                 return errorResponse2;
 
@@ -100,73 +99,73 @@ namespace SolidTradeServer.Services
                 .Include(u => u.Portfolio)
                 .FirstOrDefaultAsync(u => u.Uid == uid);
 
-            var existingWarrant = await _database.WarrantPositions.AsQueryable()
+            var existingKnockout = await _database.KnockoutPositions.AsQueryable()
                 .FirstOrDefaultAsync(w => w.Isin == cleanIsin && w.Portfolio.Id == user.Id);
             
-            var ongoingWarrant = new OngoingWarrantPosition
+            var ongoingKnockout = new OngoingKnockoutPosition
             {
                 Isin = cleanIsin,
                 Portfolio = user.Portfolio,
                 Type = dto.Type!.Value,
                 GoodUntil = dto.GoodUntil!.Value,                                                                                                                                                                  
-                CurrentWarrantPosition = existingWarrant,
+                CurrentKnockoutPosition = existingKnockout,
                 NumberOfShares = dto.NumberOfShares,
                 Price = dto.PriceThreshold,
             };
 
             try
             {
-                var entity = _database.OngoingWarrantPositions.Add(ongoingWarrant);
+                var entity = _database.OngoingKnockoutPositions.Add(ongoingKnockout);
                 await _database.SaveChangesAsync();
                 
-                _trApiService.AddOngoingRequestRequest(dto.Isin, PositionType.Warrant, entity.Entity.Id);
+                _trApiService.AddOngoingRequestRequest(dto.Isin, PositionType.Knockout, entity.Entity.Id);
 
-                return _mapper.Map<OngoingWarrantPositionResponseDto>(ongoingWarrant);
+                return _mapper.Map<OngoingKnockoutPositionResponseDto>(ongoingKnockout);
             }
             catch (Exception e)
             {
                 return new ErrorResponse(new UnexpectedError
                 {
-                    Title = "Could not save ongoing warrant",
-                    Message = "Failed to save or process ongoing warrant trade",
+                    Title = "Could not save ongoing knockout",
+                    Message = "Failed to save or process ongoing knockout trade",
                     Exception = e,
-                    AdditionalData = new { Dto = dto, OngoingWarrant = ongoingWarrant },
+                    AdditionalData = new { Dto = dto, OngoingKnockout = ongoingKnockout },
                 }, HttpStatusCode.InternalServerError);
             }
         }
 
-        public async Task<OneOf<OngoingWarrantPositionResponseDto, ErrorResponse>> CloseOngoingWarrant(CloseOngoingPositionRequestDto dto, string uid)
+        public async Task<OneOf<OngoingKnockoutPositionResponseDto, ErrorResponse>> CloseOngoingKnockout(CloseOngoingPositionRequestDto dto, string uid)
         {
-            var warrant = await _database.OngoingWarrantPositions.AsQueryable()
+            var knockout = await _database.OngoingKnockoutPositions.AsQueryable()
                 .FirstOrDefaultAsync(w => w.Id == dto.Id && w.Portfolio.User.Uid == uid);
 
-            if (warrant is null)
+            if (knockout is null)
             {
                 return new ErrorResponse(new NotFound
                 {
                     Title = "Unable to delete ongoing trade",
-                    Message = $"The warrant with id: {dto.Id} could not be found or the user does not own this ongoing warrant.",
-                    UserFriendlyMessage = "Could not remove warrant. The warrant might already been filled.",
+                    Message = $"The knockout with id: {dto.Id} could not be found or the user does not own this ongoing knockout.",
+                    UserFriendlyMessage = "Could not remove knockout. The knockout might already been filled.",
                     AdditionalData = new { dto, uid }
                 }, HttpStatusCode.BadRequest);
             }
             
             try
             {
-                _database.OngoingWarrantPositions.Remove(warrant);
+                _database.OngoingKnockoutPositions.Remove(knockout);
                 
                 await _database.SaveChangesAsync();
-                return _mapper.Map<OngoingWarrantPositionResponseDto>(warrant);
+                return _mapper.Map<OngoingKnockoutPositionResponseDto>(knockout);
             }
             catch (Exception e)
             {
                 return new ErrorResponse(new UnexpectedError
                 {
-                    Title = "Could remove ongoing warrant",
+                    Title = "Could remove ongoing knockout",
                     Message = "Failed to close position.",
                     Exception = e,
                     UserFriendlyMessage = "Something went very wrong. Please try again later.",
-                    AdditionalData = new { dto, uid, warrant },
+                    AdditionalData = new { dto, uid, Knockout = knockout },
                 }, HttpStatusCode.InternalServerError);
             }
         }

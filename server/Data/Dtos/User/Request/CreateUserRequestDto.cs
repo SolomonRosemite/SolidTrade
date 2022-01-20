@@ -17,7 +17,7 @@ namespace SolidTradeServer.Data.Dtos.User.Request
         public string Username { get; init; }
         
         [Required]
-        [Range(10000, 100000)]
+        [Range(1_000, 1_000_000)]
         public int InitialBalance { get; init; }
         
         [Required]
