@@ -12,14 +12,13 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using OneOf;
 using OneOf.Types;
 using Serilog;
+using SolidTradeServer.Common;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Dtos.User.Request;
 using SolidTradeServer.Data.Dtos.User.Response;
 using SolidTradeServer.Data.Entities;
 using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Data.Models.Errors.Common;
-using SolidTradeServer.Services.Common;
-using Constants = SolidTradeServer.Common.Constants;
 using NotFound = SolidTradeServer.Data.Models.Errors.NotFound;
 
 namespace SolidTradeServer.Services
@@ -97,7 +96,7 @@ namespace SolidTradeServer.Services
                 
                 user.ProfilePictureUrl = profilePictureUrl.AbsoluteUri;
 
-                await CommonService.Firestore.Document($"users/{uid}")
+                await OngoingProductsService.Firestore.Document($"users/{uid}")
                     .SetAsync(new { Update = "None" });
                 
                 newUser = await _database.Users.AddAsync(user);
@@ -233,7 +232,7 @@ namespace SolidTradeServer.Services
                 if (prevProfilePicture is not null)
                     (await DeleteUserProfilePicture(prevProfilePicture)).Switch(_ => {}, err =>
                     {
-                        _logger.Warning(Constants.LogMessageTemplate, err);
+                        _logger.Warning(Shared.LogMessageTemplate, err);
                     });
                 
                 return _mapper.Map<UserResponseDto>(user);
@@ -280,7 +279,7 @@ namespace SolidTradeServer.Services
                 return error;
             }
             
-            await CommonService.Firestore
+            await OngoingProductsService.Firestore
                 .Document($"users/{uid}")
                 .DeleteAsync();
 

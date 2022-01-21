@@ -1,12 +1,7 @@
-﻿using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
-using SolidTradeServer.Common;
-using SolidTradeServer.Data.Dtos.Portfolio.Request;
-using SolidTradeServer.Data.Dtos.User.Request;
 using SolidTradeServer.Services;
-using SolidTradeServer.Services.Common;
+using static SolidTradeServer.Common.Shared;
 
 namespace SolidTradeServer.Controllers
 {
@@ -23,7 +18,7 @@ namespace SolidTradeServer.Controllers
 
         [HttpGet("{id:int}")]
         public async Task<IActionResult> Get(int id)
-            => CommonService.MatchResult(
-                await _historicalPositionsService.GetHistoricalPositions(id, Request.Headers[Constants.UidHeader]));
+            => MatchResult(
+                await _historicalPositionsService.GetHistoricalPositions(id, Request.Headers[UidHeader]));
     }
 }

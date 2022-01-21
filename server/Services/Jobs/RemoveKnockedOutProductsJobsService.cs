@@ -13,7 +13,7 @@ using SolidTradeServer.Data.Entities;
 using SolidTradeServer.Data.Models.Enums;
 using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Data.Models.Errors.Common;
-using SolidTradeServer.Services.Common;
+using SolidTradeServer.Services.TradeRepublic;
 
 namespace SolidTradeServer.Services.Jobs
 {
@@ -38,7 +38,7 @@ namespace SolidTradeServer.Services.Jobs
             }
             catch (Exception e)
             {
-                _logger.Error(Constants.LogMessageTemplate, new UnexpectedError
+                _logger.Error(Shared.LogMessageTemplate, new UnexpectedError
                 {
                     Title = "Could not remove expired trades",
                     Message = "Something went wrong trying to remove expired trades. See exception for more.",
@@ -58,7 +58,7 @@ namespace SolidTradeServer.Services.Jobs
             foreach (var knockoutPosition in knockoutPositions)
             {
                 tasks.Add(_tradeRepublicApiService.MakeTrRequest<TradeRepublicProductInfoDto>(
-                    Constants.GetTradeRepublicProductInfoRequestString(knockoutPosition.Isin)));
+                    Shared.GetTradeRepublicProductInfoRequestString(knockoutPosition.Isin)));
             }
             
             var results = await Task.WhenAll(tasks);
@@ -69,7 +69,7 @@ namespace SolidTradeServer.Services.Jobs
             if (errors.Any())
             {
                 foreach (var error in errors)
-                    _logger.Warning(Constants.LogMessageTemplate, error);
+                    _logger.Warning(Shared.LogMessageTemplate, error);
                 return;
             }
 
@@ -114,7 +114,7 @@ namespace SolidTradeServer.Services.Jobs
                     AdditionalData = new { Knockouts = knockoutPositions },
                 };
                 
-                _logger.Warning(Constants.LogMessageTemplate, error);
+                _logger.Warning(Shared.LogMessageTemplate, error);
             }
         }
     }

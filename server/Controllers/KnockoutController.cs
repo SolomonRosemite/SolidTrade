@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SolidTradeServer.Common;
 using SolidTradeServer.Data.Dtos.Shared.Common;
 using SolidTradeServer.Services;
-using SolidTradeServer.Services.Common;
+using static SolidTradeServer.Common.Shared;
 
 namespace SolidTradeServer.Controllers
 {
@@ -20,17 +20,17 @@ namespace SolidTradeServer.Controllers
 
         [HttpGet("{id:int}")]
         public async Task<IActionResult> Get(int id)
-            => CommonService.MatchResult(
-                await _knockoutService.GetKnockout(id, Request.Headers[Constants.UidHeader]));
+            => MatchResult(
+                await _knockoutService.GetKnockout(id, Request.Headers[Shared.UidHeader]));
 
         [HttpPost]
         public async Task<IActionResult> BuyKnockout([FromBody] BuyOrSellRequestDto dto)
-            => CommonService.MatchResult(
-                await _knockoutService.BuyKnockout(dto, Request.Headers[Constants.UidHeader]));
+            => MatchResult(
+                await _knockoutService.BuyKnockout(dto, Request.Headers[Shared.UidHeader]));
 
         [HttpDelete]
         public async Task<IActionResult> SellKnockout([FromBody] BuyOrSellRequestDto dto)
-            => CommonService.MatchResult(
-                await _knockoutService.SellKnockout(dto, Request.Headers[Constants.UidHeader]));
+            => MatchResult(
+                await _knockoutService.SellKnockout(dto, Request.Headers[Shared.UidHeader]));
     }
 }

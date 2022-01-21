@@ -29,7 +29,7 @@ namespace SolidTradeServer.Services.Jobs
             }
             catch (Exception e)
             {
-                _logger.Error(Constants.LogMessageTemplate, new UnexpectedError
+                _logger.Error(Shared.LogMessageTemplate, new UnexpectedError
                 {
                     Title = "Could not remove expired trades",
                     Message = "Something went wrong trying to remove expired trades. See exception for more.",

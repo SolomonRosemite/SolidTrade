@@ -1,11 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
-using System.Threading;
-using System.Threading.Tasks;
 using Google.Cloud.Firestore;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OneOf;
@@ -13,16 +9,16 @@ using Serilog;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Dtos.TradeRepublic;
 using SolidTradeServer.Data.Entities;
-using SolidTradeServer.Data.Models.Common.Position;
 using SolidTradeServer.Data.Models.Enums;
 using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Data.Models.Errors.Common;
 using SolidTradeServer.Services.Cache;
-using Constants = SolidTradeServer.Common.Constants;
+using SolidTradeServer.Services.TradeRepublic;
+using static SolidTradeServer.Common.Shared;
 
-namespace SolidTradeServer.Services.Common
+namespace SolidTradeServer.Services
 {
-    public class CommonService
+    public class OngoingProductsService
     {
         public static FirestoreDb Firestore { get; set; }
 
@@ -31,72 +27,20 @@ namespace SolidTradeServer.Services.Common
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ICacheService _cache;
 
-        public CommonService(NotificationService notificationService, ICacheService cache, IServiceScopeFactory scopeFactory)
+        public OngoingProductsService(NotificationService notificationService, ICacheService cache, IServiceScopeFactory scopeFactory)
         {
             _notificationService = notificationService;
             _scopeFactory = scopeFactory;
             _cache = cache;
         }
         
-        public static IActionResult MatchResult<T>(OneOf<T, ErrorResponse> value)
-        {
-            return value.Match(
-                response => new ObjectResult(response),
-                err =>
-                {
-                    _logger.Error(Constants.LogMessageTemplate, err.Error);
-                    
-                    return new ObjectResult(new UnexpectedError
-                    {
-                        Title = err.Error.Title,
-                        UserFriendlyMessage = err.Error.UserFriendlyMessage,
-                        Message = err.Error.Message,
-                    }) {StatusCode = (int) err.Code};
-                });
-        }
-
-        public static IPosition CalculateNewPosition(IPosition p1, IPosition p2)
-        {
-            Position position = new Position
-            {
-                NumberOfShares = p1.NumberOfShares + p2.NumberOfShares,
-            };
-
-            position.BuyInPrice =
-                (p1.BuyInPrice * p1.NumberOfShares +
-                 p2.BuyInPrice * p2.NumberOfShares) / position.NumberOfShares;
-
-            return position;
-        }
-        
-        public static string CleanIsin(string isin)
-        {
-            var i = isin.IndexOf('.');
-            return i == -1 ? isin.Trim().ToUpper() : isin[..i].Trim().ToUpper();
-        }
-
-        public static bool GetOngoingProductHandler(EnterOrExitPositionType type, TradeRepublicProductPriceResponseDto value, decimal price)
-        {
-            return type switch
-            {
-                // Current has to be below
-                EnterOrExitPositionType.BuyLimitOrder => price >= value.Ask.Price,
-                // Current has to be above
-                EnterOrExitPositionType.BuyStopOrder => value.Ask.Price >= price,
-                // Current has to be above (take profit)
-                EnterOrExitPositionType.SellLimitOrder => price <= value.Bid.Price,
-                // Current has to be below (stop loss)
-                EnterOrExitPositionType.SellStopOrder => value.Bid.Price <= price,
-            };
-        }
-
         public (List<OngoingWarrantPosition>, List<OngoingKnockoutPosition>) GetAllOngoingPositions()
         {
             using var db = _scopeFactory.CreateScope().ServiceProvider.GetRequiredService<DbSolidTrade>();
             return (db.OngoingWarrantPositions.ToList(), db.OngoingKnockoutPositions.ToList());
         }
 
-        public OngoingTradeResponse HandleOngoingWarrantTradeMessage(TradeRepublicApiService trService, 
+        public OngoingTradeResponse HandleOngoingWarrantTradeMessage(TradeRepublicApi trService, 
             TradeRepublicProductPriceResponseDto trMessage, PositionType type, int ongoingProductId)
         {
             var cachedWarrant = _cache.GetCachedValue<OngoingWarrantPosition>(ongoingProductId.ToString());
@@ -136,12 +80,12 @@ namespace SolidTradeServer.Services.Common
 
             try
             {
-                oneOfResult = MakeTrRequest<TradeRepublicProductInfoDto>(trService, 
-                    Constants.GetTradeRepublicProductInfoRequestString(ongoingProduct.Isin)).GetAwaiter().GetResult();
+                oneOfResult = MakeTrRequestWithService<TradeRepublicProductInfoDto>(trService, 
+                    GetTradeRepublicProductInfoRequestString(ongoingProduct.Isin)).GetAwaiter().GetResult();
             }
             catch (Exception e)
             {
-                _logger.Error(Constants.LogMessageTemplate, new UnexpectedError
+                _logger.Error(LogMessageTemplate, new UnexpectedError
                 {
                     Title = "Unable to make Trade Republic request",
                     Message = "Unexpect error when trying to make trade republic request.",
@@ -153,7 +97,7 @@ namespace SolidTradeServer.Services.Common
             
             if (oneOfResult.TryPickT1(out var errorResponse, out var isActiveResponse))
             {
-                _logger.Error(Constants.LogMessageTemplate, errorResponse);
+                _logger.Error(LogMessageTemplate, errorResponse);
                 return OngoingTradeResponse.WaitingForFill;
             }
 
@@ -168,7 +112,7 @@ namespace SolidTradeServer.Services.Common
                     UserFriendlyMessage = message,
                     AdditionalData = new { Dto = ongoingProduct.Isin }
                 };
-                _logger.Error(Constants.LogMessageTemplate, err);
+                _logger.Error(LogMessageTemplate, err);
                 return OngoingTradeResponse.Failed;
             }
             
@@ -200,7 +144,7 @@ namespace SolidTradeServer.Services.Common
 
                         database.OngoingWarrantPositions.Remove(ongoingProduct);
                         
-                        _logger.Warning(Constants.LogMessageTemplate, new InsufficientFounds
+                        _logger.Warning(LogMessageTemplate, new InsufficientFounds
                         {
                             Title = "Not enough buying power",
                             Message = message,
@@ -268,7 +212,7 @@ namespace SolidTradeServer.Services.Common
                         _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position could not be filled",
                             $"Your {orderName} could not be executed. {message}");
                         
-                        _logger.Warning(Constants.LogMessageTemplate, new UnexpectedError
+                        _logger.Warning(LogMessageTemplate, new UnexpectedError
                         {
                             Title = "Could not fill position",
                             Message = message,
@@ -316,7 +260,7 @@ namespace SolidTradeServer.Services.Common
             }
             catch (Exception e)
             {
-                _logger.Error(Constants.LogMessageTemplate, new UnexpectedError
+                _logger.Error(LogMessageTemplate, new UnexpectedError
                 {
                     Title = "Ongoing trade update failed",
                     Message = "Failed to process fill of ongoing trade",
@@ -332,7 +276,7 @@ namespace SolidTradeServer.Services.Common
             }
         }
 
-        public OngoingTradeResponse HandleOngoingKnockoutTradeMessage(TradeRepublicApiService trService, 
+        public OngoingTradeResponse HandleOngoingKnockoutTradeMessage(TradeRepublicApi trService, 
             TradeRepublicProductPriceResponseDto trMessage, PositionType type, int ongoingProductId)
         {
             var cachedKnockout = _cache.GetCachedValue<OngoingKnockoutPosition>(ongoingProductId.ToString());
@@ -385,12 +329,12 @@ namespace SolidTradeServer.Services.Common
 
                 try
                 {
-                    oneOfResult = MakeTrRequest<TradeRepublicProductInfoDto>(trService,
-                        Constants.GetTradeRepublicProductInfoRequestString(ongoingProduct.Isin)).GetAwaiter().GetResult();
+                    oneOfResult = MakeTrRequestWithService<TradeRepublicProductInfoDto>(trService,
+                        GetTradeRepublicProductInfoRequestString(ongoingProduct.Isin)).GetAwaiter().GetResult();
                 }
                 catch (Exception e)
                 {
-                    _logger.Error(Constants.LogMessageTemplate, new UnexpectedError
+                    _logger.Error(LogMessageTemplate, new UnexpectedError
                     {
                         Title = "Unable to make Trade Republic request",
                         Message = "Unexpect error when trying to make trade republic request.",
@@ -402,7 +346,7 @@ namespace SolidTradeServer.Services.Common
 
                 if (oneOfResult.TryPickT1(out var errorResponse, out var isActiveResponse))
                 {
-                    _logger.Error(Constants.LogMessageTemplate, errorResponse);
+                    _logger.Error(LogMessageTemplate, errorResponse);
                     return OngoingTradeResponse.WaitingForFill;
                 }
 
@@ -417,7 +361,7 @@ namespace SolidTradeServer.Services.Common
                         UserFriendlyMessage = message,
                         AdditionalData = new { Dto = ongoingProduct.Isin }
                     };
-                    _logger.Error(Constants.LogMessageTemplate, err);
+                    _logger.Error(LogMessageTemplate, err);
                     return OngoingTradeResponse.Failed;
                 }
                 
@@ -436,7 +380,7 @@ namespace SolidTradeServer.Services.Common
 
                         database.OngoingKnockoutPositions.Remove(ongoingProduct);
                         
-                        _logger.Warning(Constants.LogMessageTemplate, new InsufficientFounds
+                        _logger.Warning(LogMessageTemplate, new InsufficientFounds
                         {
                             Title = "Not enough buying power",
                             Message = message,
@@ -504,7 +448,7 @@ namespace SolidTradeServer.Services.Common
                         _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position could not be filled",
                             $"Your {orderName} could not be executed. {message}");
                         
-                        _logger.Warning(Constants.LogMessageTemplate, new UnexpectedError
+                        _logger.Warning(LogMessageTemplate, new UnexpectedError
                         {
                             Title = "Could not fill position",
                             Message = message,
@@ -552,7 +496,7 @@ namespace SolidTradeServer.Services.Common
             }
             catch (Exception e)
             {
-                _logger.Error(Constants.LogMessageTemplate, new UnexpectedError
+                _logger.Error(LogMessageTemplate, new UnexpectedError
                 {
                     Title = "Ongoing trade update failed",
                     Message = "Failed to process fill of ongoing trade",
@@ -566,57 +510,6 @@ namespace SolidTradeServer.Services.Common
                 });
                 return OngoingTradeResponse.Failed;
             }
-        }
-
-        private string GetOrderName(EnterOrExitPositionType type)
-        {
-            return type switch
-            {
-                EnterOrExitPositionType.BuyLimitOrder => "buy limit",
-                EnterOrExitPositionType.BuyStopOrder => "buy stop",
-                EnterOrExitPositionType.SellLimitOrder => "take profit",
-                EnterOrExitPositionType.SellStopOrder => "stop loss",
-            };
-        }
-
-        private BuyOrSell IsBuyOrSell(EnterOrExitPositionType type)
-        {
-            return type switch
-            {
-                EnterOrExitPositionType.BuyLimitOrder => BuyOrSell.Buy,
-                EnterOrExitPositionType.BuyStopOrder => BuyOrSell.Buy,
-                EnterOrExitPositionType.SellLimitOrder => BuyOrSell.Sell,
-                EnterOrExitPositionType.SellStopOrder => BuyOrSell.Sell,
-            };
-        }
-        
-        private static async Task<OneOf<T, ErrorResponse>> MakeTrRequest<T>(TradeRepublicApiService trService, string requestString)
-        {
-            var cts = new CancellationTokenSource();
-            T trResponse;
-            
-            try
-            {
-                cts.CancelAfter(1000 * 8);
-                var oneOfResult =
-                    await trService.AddRequest<T>(requestString, cts.Token);
-
-                if (oneOfResult.TryPickT1(out var error, out trResponse))
-                    return new ErrorResponse(error, HttpStatusCode.InternalServerError);
-            }
-            catch (OperationCanceledException e)
-            {
-                return new ErrorResponse(new UnexpectedError
-                {
-                    Title = "Task timeout",
-                    Message = "Fetching product using trade republic api took too long.",
-                    AdditionalData = new { requestString },
-                    Exception = e,
-                }, HttpStatusCode.InternalServerError);
-            }
-            finally { cts.Dispose(); }
-
-            return trResponse;
         }
     }
 }

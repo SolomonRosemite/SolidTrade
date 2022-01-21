@@ -23,8 +23,8 @@ using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Filters;
 using SolidTradeServer.Services;
 using SolidTradeServer.Services.Cache;
-using SolidTradeServer.Services.Common;
 using SolidTradeServer.Services.Jobs;
+using SolidTradeServer.Services.TradeRepublic;
 using AuthenticationService = SolidTradeServer.Services.AuthenticationService;
 
 namespace SolidTradeServer
@@ -49,7 +49,7 @@ namespace SolidTradeServer
                 options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
             });
 
-            services.AddSingleton<CommonService>();
+            services.AddSingleton<OngoingProductsService>();
             services.AddSingleton<CloudinaryService>();
             services.AddSingleton<TradeRepublicApiService>();
             services.AddSingleton<ICacheService, CacheService>();
@@ -169,7 +169,7 @@ namespace SolidTradeServer
             });
             
             Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", Configuration["FirebaseCredentials"]);
-            CommonService.Firestore = FirestoreDb.Create(Configuration["FirebaseProjectId"]);
+            OngoingProductsService.Firestore = FirestoreDb.Create(Configuration["FirebaseProjectId"]);
         }
     }
 }

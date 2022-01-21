@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using SolidTradeServer.Common;
 using SolidTradeServer.Data.Dtos.Shared.OngoingPosition.Request;
 using SolidTradeServer.Services;
-using SolidTradeServer.Services.Common;
+using static SolidTradeServer.Common.Shared;
 
 namespace SolidTradeServer.Controllers
 {
@@ -20,17 +20,17 @@ namespace SolidTradeServer.Controllers
 
         [HttpGet("{id:int}")]
         public async Task<IActionResult> Get(int id)
-            => CommonService.MatchResult(
-                await _ongoingWarrantService.GetOngoingWarrant(id, Request.Headers[Constants.UidHeader]));
+            => MatchResult(
+                await _ongoingWarrantService.GetOngoingWarrant(id, Request.Headers[Shared.UidHeader]));
 
         [HttpPost]
         public async Task<IActionResult> OpenOngoingWarrant([FromBody] OngoingPositionRequestDto dto)
-            => CommonService.MatchResult(
-                await _ongoingWarrantService.OpenOngoingWarrant(dto, Request.Headers[Constants.UidHeader]));
+            => MatchResult(
+                await _ongoingWarrantService.OpenOngoingWarrant(dto, Request.Headers[Shared.UidHeader]));
 
         [HttpDelete]
         public async Task<IActionResult> CloseOngoingWarrant([FromBody] CloseOngoingPositionRequestDto dto)
-            => CommonService.MatchResult(
-                await _ongoingWarrantService.CloseOngoingWarrant(dto, Request.Headers[Constants.UidHeader]));
+            => MatchResult(
+                await _ongoingWarrantService.CloseOngoingWarrant(dto, Request.Headers[Shared.UidHeader]));
     }
 }

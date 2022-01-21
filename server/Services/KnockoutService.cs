@@ -1,13 +1,10 @@
 ﻿using System;
 using System.Linq;
 using System.Net;
-using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using OneOf;
-using OneOf.Types;
-using SolidTradeServer.Common;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Dtos.Knockout.Response;
 using SolidTradeServer.Data.Dtos.Shared.Common;
@@ -16,7 +13,8 @@ using SolidTradeServer.Data.Entities;
 using SolidTradeServer.Data.Models.Enums;
 using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Data.Models.Errors.Common;
-using SolidTradeServer.Services.Common;
+using SolidTradeServer.Services.TradeRepublic;
+using static SolidTradeServer.Common.Shared;
 using NotFound = SolidTradeServer.Data.Models.Errors.NotFound;
 
 namespace SolidTradeServer.Services
@@ -73,12 +71,10 @@ namespace SolidTradeServer.Services
 
         public async Task<OneOf<KnockoutPositionResponseDto, ErrorResponse>> BuyKnockout(BuyOrSellRequestDto dto, string uid)
         {
-            if ((await IsStockMarketOpen(dto)).TryPickT1(out var errorResponse1, out _))
-                return errorResponse1;
-            
-            if ((await MakeTrRequest<TradeRepublicProductInfoDto>(Constants.GetTradeRepublicProductInfoRequestString(CommonService.CleanIsin(dto.Isin)), dto)).TryPickT1(
-                out var errorResponse2, out var productInfo))
-                return errorResponse2;
+            var result = await _trApiService.ValidateRequest(dto.Isin);
+
+            if (result.TryPickT1(out var errorResponse, out var productInfo))
+                return errorResponse;
 
             if (productInfo.DerivativeInfo.ProductCategoryName is ProductCategory.Turbo)
             {
@@ -92,19 +88,7 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.BadRequest);
             }
             
-            if (!productInfo.Active!.Value)
-            {
-                const string message = "Product can not be bought or sold. This might happen if the product is expired or is knocked out.";
-                return new ErrorResponse(new TradeFailed
-                {
-                    Title = "Product can not be traded",
-                    Message = message,
-                    UserFriendlyMessage = message,
-                    AdditionalData = new {Dto = dto}
-                }, HttpStatusCode.BadRequest);
-            }
-            
-            if ((await MakeTrRequest<TradeRepublicProductPriceResponseDto>(Constants.GetTradeRepublicProductPriceRequestString(dto.Isin), dto)).TryPickT1(
+            if ((await _trApiService.MakeTrRequest<TradeRepublicProductPriceResponseDto>(GetTradeRepublicProductPriceRequestString(dto.Isin))).TryPickT1(
                 out var errorResponse3, out var trResponse))
                 return errorResponse3;
 
@@ -131,7 +115,7 @@ namespace SolidTradeServer.Services
             
             var knockout = new KnockoutPosition
             {
-                Isin = CommonService.CleanIsin(dto.Isin),
+                Isin = ToIsinWithoutExchangeExtension(dto.Isin),
                 BuyInPrice = trResponse.Ask.Price,
                 Portfolio = user.Portfolio,
                 NumberOfShares = dto.NumberOfShares,
@@ -180,30 +164,16 @@ namespace SolidTradeServer.Services
         
         public async Task<OneOf<KnockoutPositionResponseDto, ErrorResponse>> SellKnockout(BuyOrSellRequestDto dto, string uid)
         {
-            if ((await IsStockMarketOpen(dto)).TryPickT1(out var errorResponse1, out _))
-                return errorResponse1;
+            var result = await _trApiService.ValidateRequest(dto.Isin);
 
-            var cleanIsin = CommonService.CleanIsin(dto.Isin);
+            if (result.TryPickT1(out var errorResponse, out _))
+                return errorResponse;
 
-            if ((await MakeTrRequest<TradeRepublicProductInfoDto>(Constants.GetTradeRepublicProductInfoRequestString(cleanIsin), dto)).TryPickT1(
-                out var errorResponse2, out var isActiveResponse))
-                return errorResponse2;
+            var isinWithoutExchangeExtension = ToIsinWithoutExchangeExtension(dto.Isin);
 
-            if (!isActiveResponse.Active!.Value)
-            {
-                const string message = "Product can not be bought or sold. This might happen if the product is expired or is knocked out.";
-                return new ErrorResponse(new TradeFailed
-                {
-                    Title = "Product can not be traded",
-                    Message = message,
-                    UserFriendlyMessage = message,
-                    AdditionalData = new {Dto = dto}
-                }, HttpStatusCode.BadRequest);
-            }
-
-            if ((await MakeTrRequest<TradeRepublicProductPriceResponseDto>(Constants.GetTradeRepublicProductPriceRequestString(dto.Isin), dto)).TryPickT1(
-                out var errorResponse3, out var trResponse))
-                return errorResponse3;
+            if ((await _trApiService.MakeTrRequest<TradeRepublicProductPriceResponseDto>(GetTradeRepublicProductPriceRequestString(dto.Isin))).TryPickT1(
+                out errorResponse, out var trResponse))
+                return errorResponse;
 
             var user = await _database.Users
                 .Include(u => u.Portfolio)
@@ -213,14 +183,14 @@ namespace SolidTradeServer.Services
 
             var knockoutPosition = await _database.KnockoutPositions.AsQueryable()
                 .FirstOrDefaultAsync(w =>
-                    EF.Functions.Like(w.Isin, $"%{cleanIsin}%") && user.Portfolio.Id == w.Portfolio.Id);
+                    EF.Functions.Like(w.Isin, $"%{isinWithoutExchangeExtension}%") && user.Portfolio.Id == w.Portfolio.Id);
             
             if (knockoutPosition is null)
             {
                 return new ErrorResponse(new NotFound
                 {
                     Title = "Knockout not found",
-                    Message = $"Knockout with isin: {CommonService.CleanIsin(dto.Isin)} could not be found.",
+                    Message = $"Knockout with isin: {isinWithoutExchangeExtension} could not be found.",
                     AdditionalData = new { Dto = dto }
                 }, HttpStatusCode.NotFound);
             }
@@ -241,7 +211,7 @@ namespace SolidTradeServer.Services
             var historicalPositions = new HistoricalPosition
             {
                 BuyOrSell = BuyOrSell.Sell,
-                Isin = cleanIsin,
+                Isin = isinWithoutExchangeExtension,
                 Performance = performance,
                 PositionType = PositionType.Knockout,
                 UserId = user.Id,
@@ -284,53 +254,6 @@ namespace SolidTradeServer.Services
             }
         }
 
-        private async Task<OneOf<T, ErrorResponse>> MakeTrRequest<T>(string requestString, BuyOrSellRequestDto dto)
-        {
-            var cts = new CancellationTokenSource();
-            T trResponse;
-            
-            try
-            {
-                cts.CancelAfter(1000 * 8);
-                var oneOfResult =
-                    await _trApiService.AddRequest<T>(requestString, cts.Token);
-
-                if (oneOfResult.TryPickT1(out var error, out trResponse))
-                    return new ErrorResponse(error, HttpStatusCode.InternalServerError);
-            }
-            catch (OperationCanceledException e)
-            {
-                return new ErrorResponse(new UnexpectedError
-                {
-                    Title = "Task timeout",
-                    Message = "Fetching product using trade republic api took too long.",
-                    AdditionalData = new {dto},
-                    Exception = e,
-                }, HttpStatusCode.InternalServerError);
-            }
-            finally { cts.Dispose(); }
-
-            return trResponse;
-        }
-
-        private async Task<OneOf<Success, ErrorResponse>> IsStockMarketOpen(BuyOrSellRequestDto dto)
-        {
-            if ((await _trApiService.IsStockMarketOpen(dto.Isin)).TryPickT1(out var unexpectedError, out var isStockMarketOpen))
-                return new ErrorResponse(unexpectedError, HttpStatusCode.InternalServerError);
-
-            if (!isStockMarketOpen)
-            {
-                return new ErrorResponse(new StockMarketClosed
-                {
-                    Title = "Stock market closed",
-                    Message = "Tried to trade while stock market was closed.",
-                    UserFriendlyMessage = "The stock market is unfortunately already closed.",
-                }, HttpStatusCode.FailedDependency);
-            }
-
-            return new Success();
-        }
-
         private async Task<(bool, KnockoutPosition)> AddOrUpdate(KnockoutPosition knockoutPosition, int portfolioId)
         {
             var knockout = await _database.KnockoutPositions.AsQueryable()
@@ -340,7 +263,7 @@ namespace SolidTradeServer.Services
             if (knockout is null)
                 return (true, knockoutPosition);
 
-            var position = CommonService.CalculateNewPosition(knockoutPosition, knockout);
+            var position = CalculateNewPosition(knockoutPosition, knockout);
 
             knockout.BuyInPrice = position.BuyInPrice;
             knockout.NumberOfShares = position.NumberOfShares;

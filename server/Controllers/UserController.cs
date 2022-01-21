@@ -1,11 +1,9 @@
-﻿using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
+﻿using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using SolidTradeServer.Common;
 using SolidTradeServer.Data.Dtos.User.Request;
 using SolidTradeServer.Services;
-using SolidTradeServer.Services.Common;
+using static SolidTradeServer.Common.Shared;
 
 namespace SolidTradeServer.Controllers
 {
@@ -22,22 +20,22 @@ namespace SolidTradeServer.Controllers
 
         [HttpPost]
         public async Task<IActionResult> CreateUser([FromBody] CreateUserRequestDto dto)
-            => CommonService.MatchResult(await _userService.CreateUser(dto, Request.Headers[Constants.UidHeader]));
+            => MatchResult(await _userService.CreateUser(dto, Request.Headers[Shared.UidHeader]));
         
         [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
-            => CommonService.MatchResult(await _userService.GetUserById(id, Request.Headers[Constants.UidHeader]));
+            => MatchResult(await _userService.GetUserById(id, Request.Headers[Shared.UidHeader]));
         
         [HttpGet("{username}")]
         public async Task<IActionResult> GetByUsername(string username)
-            => CommonService.MatchResult(await _userService.SearchUserByUsername(username));
+            => MatchResult(await _userService.SearchUserByUsername(username));
 
         [HttpPatch]
         public async Task<IActionResult> UpdateUser([FromForm] UpdateUserDto dto)
-            => CommonService.MatchResult(await _userService.UpdateUser(dto, Request.Headers[Constants.UidHeader]));
+            => MatchResult(await _userService.UpdateUser(dto, Request.Headers[Shared.UidHeader]));
 
         [HttpDelete]
         public async Task<IActionResult> DeleteUser()
-            => CommonService.MatchResult(await _userService.DeleteUser(Request.Headers[Constants.UidHeader]));
+            => MatchResult(await _userService.DeleteUser(Request.Headers[Shared.UidHeader]));
     }
 }

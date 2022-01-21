@@ -7,10 +7,10 @@ using Microsoft.Extensions.Configuration;
 using OneOf;
 using OneOf.Types;
 using Serilog;
-using SolidTradeServer.Common;
 using SolidTradeServer.Data.Models.Errors;
+using static SolidTradeServer.Common.Shared;
 
-namespace SolidTradeServer.Services.Common
+namespace SolidTradeServer.Services
 {
     public class CloudinaryService
     {
@@ -69,7 +69,7 @@ namespace SolidTradeServer.Services.Common
                     Exception = e,
                 };
                 
-                _logger.Error(Constants.LogMessageTemplate, error);
+                _logger.Error(LogMessageTemplate, error);
                 return error;
             }
         }
@@ -102,7 +102,7 @@ namespace SolidTradeServer.Services.Common
                     Exception = e,
                 };
                 
-                _logger.Error(Constants.LogMessageTemplate, error);
+                _logger.Error(LogMessageTemplate, error);
                 return error;
             }
         }

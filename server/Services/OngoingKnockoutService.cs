@@ -16,7 +16,8 @@ using SolidTradeServer.Data.Entities;
 using SolidTradeServer.Data.Models.Enums;
 using SolidTradeServer.Data.Models.Errors;
 using SolidTradeServer.Data.Models.Errors.Common;
-using SolidTradeServer.Services.Common;
+using SolidTradeServer.Services.TradeRepublic;
+using static SolidTradeServer.Common.Shared;
 using NotFound = SolidTradeServer.Data.Models.Errors.NotFound;
 
 namespace SolidTradeServer.Services
@@ -73,16 +74,19 @@ namespace SolidTradeServer.Services
         
         public async Task<OneOf<OngoingKnockoutPositionResponseDto, ErrorResponse>> OpenOngoingKnockout(OngoingPositionRequestDto dto, string uid)
         {
-            var cleanIsin = CommonService.CleanIsin(dto.Isin);
+            var result = await _trApiService.ValidateRequest(dto.Isin);
 
-            if ((await IsStockMarketOpen(dto.Isin)).TryPickT1(out var errorResponse1, out _))
-                return errorResponse1;
+            if (result.TryPickT1(out var errorResponse, out _))
+                return errorResponse;
             
-            if ((await MakeTrRequest<TradeRepublicProductPriceResponseDto>(Constants.GetTradeRepublicProductPriceRequestString(dto.Isin), dto)).TryPickT1(
-                out var errorResponse2, out var trResponse))
-                return errorResponse2;
+            var isinWithoutExchangeExtension = ToIsinWithoutExchangeExtension(dto.Isin);
 
-            var isFulfilled = CommonService.GetOngoingProductHandler(dto.Type!.Value, trResponse, dto.PriceThreshold);
+            
+            if ((await _trApiService.MakeTrRequest<TradeRepublicProductPriceResponseDto>(GetTradeRepublicProductPriceRequestString(dto.Isin))).TryPickT1(
+                out errorResponse, out var trResponse))
+                return errorResponse;
+
+            var isFulfilled = GetOngoingProductHandler(dto.Type!.Value, trResponse, dto.PriceThreshold);
 
             if (isFulfilled)
             {
@@ -100,11 +104,11 @@ namespace SolidTradeServer.Services
                 .FirstOrDefaultAsync(u => u.Uid == uid);
 
             var existingKnockout = await _database.KnockoutPositions.AsQueryable()
-                .FirstOrDefaultAsync(w => w.Isin == cleanIsin && w.Portfolio.Id == user.Id);
+                .FirstOrDefaultAsync(w => w.Isin == isinWithoutExchangeExtension && w.Portfolio.Id == user.Id);
             
             var ongoingKnockout = new OngoingKnockoutPosition
             {
-                Isin = cleanIsin,
+                Isin = isinWithoutExchangeExtension,
                 Portfolio = user.Portfolio,
                 Type = dto.Type!.Value,
                 GoodUntil = dto.GoodUntil!.Value,                                                                                                                                                                  
@@ -168,53 +172,6 @@ namespace SolidTradeServer.Services
                     AdditionalData = new { dto, uid, Knockout = knockout },
                 }, HttpStatusCode.InternalServerError);
             }
-        }
-        
-        private async Task<OneOf<Success, ErrorResponse>> IsStockMarketOpen(string isin)
-        {
-            if ((await _trApiService.IsStockMarketOpen(isin)).TryPickT1(out var unexpectedError, out var isStockMarketOpen))
-                return new ErrorResponse(unexpectedError, HttpStatusCode.InternalServerError);
-
-            if (!isStockMarketOpen)
-            {
-                return new ErrorResponse(new StockMarketClosed
-                {
-                    Title = "Stock market closed",
-                    Message = "Tried to trade while stock market was closed.",
-                    UserFriendlyMessage = "The stock market is unfortunately already closed.",
-                }, HttpStatusCode.FailedDependency);
-            }
-
-            return new Success();
-        }
-        
-        private async Task<OneOf<T, ErrorResponse>> MakeTrRequest<T>(string requestString, OngoingPositionRequestDto dto)
-        {
-            var cts = new CancellationTokenSource();
-            T trResponse;
-
-            try
-            {
-                cts.CancelAfter(1000 * 8);
-                var oneOfResult =
-                    await _trApiService.AddRequest<T>(requestString, cts.Token);
-
-                if (oneOfResult.TryPickT1(out var error, out trResponse))
-                    return new ErrorResponse(error, HttpStatusCode.InternalServerError);
-            }
-            catch (OperationCanceledException e)
-            {
-                return new ErrorResponse(new UnexpectedError
-                {
-                    Title = "Task timeout",
-                    Message = "Fetching product using trade republic api took too long.",
-                    AdditionalData = new {dto},
-                    Exception = e,
-                }, HttpStatusCode.InternalServerError);
-            }
-            finally { cts.Dispose(); }
-
-            return trResponse;
         }
     }
 }
