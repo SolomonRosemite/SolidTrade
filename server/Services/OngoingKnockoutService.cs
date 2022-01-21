@@ -76,8 +76,20 @@ namespace SolidTradeServer.Services
         {
             var result = await _trApiService.ValidateRequest(dto.Isin);
 
-            if (result.TryPickT1(out var errorResponse, out _))
+            if (result.TryPickT1(out var errorResponse, out var productInfo))
                 return errorResponse;
+
+            if (productInfo.DerivativeInfo.ProductCategoryName is ProductCategory.Turbo)
+            {
+                const string message = "Product is not Open End Turbo. Only Open End Turbo knockouts can be traded.";
+                return new ErrorResponse(new TradeFailed
+                {
+                    Title = "Product is not Open End Turbo",
+                    Message = message,
+                    UserFriendlyMessage = message,
+                    AdditionalData = new {Dto = dto}
+                }, HttpStatusCode.BadRequest);
+            }
             
             var isinWithoutExchangeExtension = ToIsinWithoutExchangeExtension(dto.Isin);
 

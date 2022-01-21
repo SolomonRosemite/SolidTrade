@@ -19,9 +19,9 @@ namespace SolidTradeServer.Common
 {
     public static class Shared
     {
-        public static readonly ILogger _logger = Log.Logger;
+        private static readonly ILogger _logger = Log.Logger;
         
-        public static string LogMessageTemplate => "{@LogParameters}"; 
+        public const string LogMessageTemplate = "{@LogParameters}"; 
         public static string UidHeader => "_Uid";
 
         public static string GetTradeRepublicProductInfoRequestString(string isin)
@@ -30,7 +30,7 @@ namespace SolidTradeServer.Common
         public static string GetTradeRepublicProductPriceRequestString(string isin)
             => "{\"type\":\"ticker\",\"id\":\"" + isin + "\"}";
         
-        public static readonly JsonSerializerSettings _jsonSerializerOptions = new()
+        private static readonly JsonSerializerSettings _jsonSerializerOptions = new()
         {
             ContractResolver = new DefaultContractResolver
             {
@@ -86,7 +86,6 @@ namespace SolidTradeServer.Common
 
             return position;
         }
-        
                 
         public static IActionResult MatchResult<T>(OneOf<T, ErrorResponse> value)
         {
@@ -94,8 +93,10 @@ namespace SolidTradeServer.Common
                 response => new ObjectResult(response),
                 err =>
                 {
-                    _logger.Error(LogMessageTemplate, err.Error);
-                    
+                    var ex = err.Error.Exception;
+                    err.Error.Exception = new Exception("Exception is defined in the 'exceptions' field.");
+                    _logger.Error(ex, LogMessageTemplate, err.Error);
+
                     return new ObjectResult(new UnexpectedError
                     {
                         Title = err.Error.Title,

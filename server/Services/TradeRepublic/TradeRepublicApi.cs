@@ -41,13 +41,14 @@ namespace SolidTradeServer.Services.TradeRepublic
             _webSocket.OnMessage += OnTradeRepublicMessage;
             _webSocket.OnOpen += (_, _) =>
             {
+                _logger.Information("Connected to Trade republic api");
                 _webSocket.Send(configuration["TradeRepublic:InitialConnectString"]);
                 Task.Run(async () => await RegisterAllOngoingPosition());
             };
 
             _webSocket.OnClose += (_, _) =>
             {
-                _logger.Warning("Trade republic stock connection closed unexpectedly");
+                _logger.Warning("Trade republic api connection closed unexpectedly");
                 _logger.Information("Trying to reconnect");
 
                 _isReconnect = true;
@@ -137,7 +138,7 @@ namespace SolidTradeServer.Services.TradeRepublic
             } else if (_runningRequestsAsync.ContainsKey(id))
             {
                 var (type, productId) = _runningRequestsAsync[id];
-                HandleRequestMessage(id, productId, type, message);
+                Task.Run(() => HandleRequestMessage(id, productId, type, message));
             }
         }
 
@@ -156,7 +157,7 @@ namespace SolidTradeServer.Services.TradeRepublic
             }
             catch (Exception e)
             {
-                _logger.Error(Shared.LogMessageTemplate, new UnexpectedError
+                _logger.Error(LogMessageTemplate, new UnexpectedError
                 {
                   Title  = "Failed to parse id",
                   Message = "Failed to parse id from trade republic message.",
@@ -195,7 +196,7 @@ namespace SolidTradeServer.Services.TradeRepublic
 
                 if (results.Any(r => r.IsT1))
                 {
-                    _logger.Fatal(Shared.LogMessageTemplate, results.First(r => r.IsT1).AsT1);
+                    _logger.Fatal(LogMessageTemplate, results.First(r => r.IsT1).AsT1);
                     Thread.Sleep(1000);
                     Program.ExitApplication();
                 }
@@ -212,7 +213,7 @@ namespace SolidTradeServer.Services.TradeRepublic
             }
             catch (Exception e)
             {
-                _logger.Fatal(Shared.LogMessageTemplate, new UnexpectedError
+                _logger.Fatal(LogMessageTemplate, new UnexpectedError
                 {
                     Title = "Failed register ongoing positions",
                     Message = "Unexpected fatal error while trying to register ongoing positions",
@@ -247,10 +248,9 @@ namespace SolidTradeServer.Services.TradeRepublic
                 }
                 catch (Exception e)
                 {
-                    _logger.Error(Shared.LogMessageTemplate, new UnexpectedError
+                    _logger.Error(LogMessageTemplate, new UnexpectedError
                     {
                         Title = "Processing ongoing trade failed",
-                        Message = "Failed to process product trade message.",
                         Exception = e,
                         AdditionalData = new {Dto = value}
                     });
@@ -260,7 +260,7 @@ namespace SolidTradeServer.Services.TradeRepublic
             }
             else
             {
-                _logger.Error(Shared.LogMessageTemplate, err);
+                _logger.Error(LogMessageTemplate, err);
 
                 _webSocket.Send($"unsub {id}");
                 _runningRequestsAsync.Remove(id);

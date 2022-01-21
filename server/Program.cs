@@ -4,7 +4,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Serilog.Sinks.Elasticsearch;
 using Serilog;
-using Serilog.Core;
 using Serilog.Events;
 using SolidTradeServer.Serilog;
 
@@ -15,8 +14,6 @@ namespace SolidTradeServer
         public static void Main(string[] args)
            => CreateHostBuilder(args).Build().Run();
 
-        // Todo: Improve logging in all services.
-        // Every works excluding the ongoing products.
         private static IHostBuilder CreateHostBuilder(string[] args) =>
             Host.CreateDefaultBuilder(args)
                 .ConfigureHostConfiguration(hostConfig =>
