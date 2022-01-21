@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using OneOf;
+using Serilog;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Dtos.Portfolio.Request;
 using SolidTradeServer.Data.Dtos.Portfolio.Response;
@@ -13,6 +14,8 @@ namespace SolidTradeServer.Services
 {
     public class PortfolioService
     {
+        private readonly ILogger _logger = Log.ForContext<PortfolioService>();
+        
         private readonly DbSolidTrade _database;
         private readonly IMapper _mapper;
 
@@ -58,6 +61,8 @@ namespace SolidTradeServer.Services
                         Message = "Tried to access other user's portfolio",
                     }, HttpStatusCode.Unauthorized);
                 }
+                
+                _logger.Information("User with user uid {@Uid} fetched portfolio with portfolio id {@PortfolioId} successfully", uid, dto.PortfolioId);
 
                 return _mapper.Map<PortfolioResponseDto>(portfolio);
             }
@@ -81,6 +86,8 @@ namespace SolidTradeServer.Services
                     Message = "Tried to access other user's portfolio",
                 }, HttpStatusCode.Unauthorized);
             }
+            
+            _logger.Information("User with user uid {@Uid} fetched portfolio by user id {@UserId} successfully", uid, dto.UserId);
 
             return _mapper.Map<PortfolioResponseDto>(portfolioByUserId);
         }

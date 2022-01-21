@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Resources;
 using System.Threading.Tasks;
 using CloudinaryDotNet;
 using CloudinaryDotNet.Actions;
@@ -57,6 +58,8 @@ namespace SolidTradeServer.Services
 
                 var deletionParams = new DeletionParams(publicId);
                 await _cloudinary.DestroyAsync(deletionParams);
+                
+                _logger.Information("Deletion image with url {@ImageUrl} and public id {@PublicId} was successful", url, publicId);
                 return new Success();
             }
             catch (Exception e)
@@ -76,8 +79,6 @@ namespace SolidTradeServer.Services
         
         private async Task<OneOf<UploadResult, UnexpectedError>> UploadImage(FileDescription description, int quality, string uid, string folder)
         {
-            Console.WriteLine("Quality is: " + quality);
-            
             try
             {
                 var uploadParams = new ImageUploadParams
@@ -89,7 +90,9 @@ namespace SolidTradeServer.Services
                     UseFilename = true,
                 };
 
+                _logger.Information("Trying to upload image by uid {@Uid} with quality of {@Quality}", uid, quality);
                 var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+                _logger.Information("Image upload by uid {@Uid} with quality of {@Quality} was successful", uid, quality);
                 return uploadResult;
             }
             catch (Exception e)

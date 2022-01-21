@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using OneOf;
+using Serilog;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Dtos.Knockout.Response;
 using SolidTradeServer.Data.Dtos.Shared.Common;
@@ -21,6 +22,8 @@ namespace SolidTradeServer.Services
 {
     public class KnockoutService
     {
+        private readonly ILogger _logger = Log.ForContext<KnockoutService>();
+        
         private readonly TradeRepublicApiService _trApiService;
         private readonly DbSolidTrade _database;
         private readonly IMapper _mapper;
@@ -65,6 +68,8 @@ namespace SolidTradeServer.Services
                     Message = $"Knockout with id: {id} could not be found.",
                 }, HttpStatusCode.NotFound);
             }
+            
+            _logger.Information("User with user uid {@Uid} fetched knockout with knockout id {@KnockoutId} successfully", uid, id);
 
             return _mapper.Map<KnockoutPositionResponseDto>(knockoutPosition);
         }
@@ -146,7 +151,9 @@ namespace SolidTradeServer.Services
                 _database.Portfolios.Update(user.Portfolio);
                 _database.HistoricalPositions.Add(historicalPositions);
                 
+                _logger.Information("Trying to save buy knockout with isin {@Isin} for User with uid {@Uid}", dto.Isin, uid);
                 await _database.SaveChangesAsync();
+                _logger.Information("Save buy knockout with isin {@Isin} for User with uid {@Uid} was successful", dto.Isin, uid);
                 return _mapper.Map<KnockoutPositionResponseDto>(newKnockout);
             }
             catch (Exception e)
@@ -234,7 +241,9 @@ namespace SolidTradeServer.Services
                 _database.Portfolios.Update(user.Portfolio);
                 _database.HistoricalPositions.Add(historicalPositions);
                 
+                _logger.Information("Trying to save sell knockout with isin {@Isin} for User with uid {@Uid}", dto.Isin, uid);
                 await _database.SaveChangesAsync();
+                _logger.Information("Save sell knockout with isin {@Isin} for User with uid {@Uid} was successful", dto.Isin, uid);
                 return _mapper.Map<KnockoutPositionResponseDto>(knockoutPosition);
             }
             catch (Exception e)

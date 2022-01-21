@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using OneOf;
+using Serilog;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Dtos.Shared.Common;
 using SolidTradeServer.Data.Dtos.TradeRepublic;
@@ -21,6 +22,8 @@ namespace SolidTradeServer.Services
 {
     public class WarrantService : IDisposable
     {
+        private readonly ILogger _logger = Log.ForContext<WarrantService>();
+        
         private readonly TradeRepublicApiService _trApiService;
         private readonly DbSolidTrade _database;
         private readonly IMapper _mapper;
@@ -65,6 +68,8 @@ namespace SolidTradeServer.Services
                     Message = $"Warrant with id: {id} could not be found",
                 }, HttpStatusCode.NotFound);
             }
+            
+            _logger.Information("User with user uid {@Uid} fetched warrant with warrant id {@WarrantId} successfully", uid, id);
 
             return _mapper.Map<WarrantPositionResponseDto>(warrant);
         }

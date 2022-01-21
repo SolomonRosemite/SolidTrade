@@ -8,7 +8,6 @@ using AutoMapper;
 using FirebaseAdmin.Auth;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 using OneOf;
 using OneOf.Types;
 using Serilog;
@@ -26,6 +25,7 @@ namespace SolidTradeServer.Services
     public class UserService
     {
         private readonly ILogger _logger = Log.ForContext<UserService>();
+        
         private readonly CloudinaryService _cloudinaryService;
         private readonly DbSolidTrade _database;
         private readonly IMapper _mapper;
@@ -84,8 +84,6 @@ namespace SolidTradeServer.Services
                 }, HttpStatusCode.Conflict);
             }
 
-            EntityEntry<User> newUser;
-            
             try
             {
                 if ((await CreateUserProfilePictureWithSeed(dto.ProfilePictureSeed, uid))
@@ -99,8 +97,13 @@ namespace SolidTradeServer.Services
                 await OngoingProductsService.Firestore.Document($"users/{uid}")
                     .SetAsync(new { Update = "None" });
                 
-                newUser = await _database.Users.AddAsync(user);
+                var newUser = await _database.Users.AddAsync(user);
+                
+                _logger.Information("Trying to save new User with uid {@Uid}", uid);
                 await _database.SaveChangesAsync();
+                _logger.Information("Save User with uid {@Uid} was successful", uid);
+                
+                return _mapper.Map<UserResponseDto>(newUser.Entity);
             }
             catch (Exception e)
             {
@@ -112,8 +115,6 @@ namespace SolidTradeServer.Services
                     Exception = e,
                 }, HttpStatusCode.InternalServerError);
             }
-            
-            return _mapper.Map<UserResponseDto>(newUser.Entity);
         }
         
         public async Task<OneOf<UserResponseDto, ErrorResponse>> GetUserById(int id, string uid)
@@ -135,15 +136,19 @@ namespace SolidTradeServer.Services
             if (user.Uid != uid)
                 userResponse.Email = null;
 
+            _logger.Information("User with user uid {@Uid} fetched user with user id {@UserId} successfully", uid, id);
+            
             return userResponse;
         }
         
-        public async Task<OneOf<List<UserResponseDto>, ErrorResponse>> SearchUserByUsername(string username)
+        public async Task<OneOf<List<UserResponseDto>, ErrorResponse>> SearchUserByUsername(string username, string uid)
         {
             var users = await _database.Users.AsQueryable()
                 .Where(u =>  EF.Functions.Like(u.Username, $"{username}%"))
                 .ToListAsync();
 
+            _logger.Information("User with user uid {@Uid} fetched {@NumberOfFoundUsers} user by username {@Username} successfully", uid, users.Count, username);
+            
             return users.Select(user =>
             {
                 user.Email = null;
@@ -227,7 +232,10 @@ namespace SolidTradeServer.Services
             try
             {
                 _database.Users.Update(user);
+                
+                _logger.Information("Trying to update user with uid {@Uid}", uid);
                 await _database.SaveChangesAsync();
+                _logger.Information("Updated User with uid {@Uid} successful", uid);
 
                 if (prevProfilePicture is not null)
                     (await DeleteUserProfilePicture(prevProfilePicture)).Switch(_ => {}, err =>
@@ -264,8 +272,9 @@ namespace SolidTradeServer.Services
             
             try
             {
+                _logger.Information("Trying to delete firebase user with uid {@Uid}", uid);
                 await FirebaseAuth.DefaultInstance.DeleteUserAsync(uid, CancellationToken.None);
-                _logger.Information($"Firebase user delete with id: {uid} was successful");
+                _logger.Information("Delete user with uid {@Uid} was successful", uid);
             }
             catch (Exception e)
             {
@@ -286,9 +295,11 @@ namespace SolidTradeServer.Services
             try
             {
                 _database.Users.Remove(user);
+                
+                _logger.Information("Trying delete User with uid {@Uid}", uid);
                 await _database.SaveChangesAsync();
-                _logger.Information($"User delete with id: {user.Id} was successful");
-
+                _logger.Information("Delete User with uid {@Uid} was successful", uid);
+                
                 await DeleteUserProfilePicture(user.ProfilePictureUrl);
             }
             catch (Exception e)

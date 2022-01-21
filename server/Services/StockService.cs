@@ -7,6 +7,7 @@ using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using OneOf;
 using OneOf.Types;
+using Serilog;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Dtos.Shared.Common;
 using SolidTradeServer.Data.Dtos.Stock.Response;
@@ -23,6 +24,8 @@ namespace SolidTradeServer.Services
 {
     public class StockService
     {
+        private readonly ILogger _logger = Log.ForContext<StockService>();
+        
         private readonly TradeRepublicApiService _trApiService;
         private readonly DbSolidTrade _database;
         private readonly IMapper _mapper;
@@ -67,6 +70,8 @@ namespace SolidTradeServer.Services
                     Message = $"Stock with id: {id} could not be found",
                 }, HttpStatusCode.NotFound);
             }
+            
+            _logger.Information("User with user uid {@Uid} fetched stock with stock id {@StockId} successfully", uid, id);
 
             return _mapper.Map<StockPositionResponseDto>(stock);
         }
@@ -94,8 +99,7 @@ namespace SolidTradeServer.Services
                 {
                     Title = "Insufficient funds",
                     Message = "User founds not sufficient for purchase.",
-                    UserFriendlyMessage =
-                        $"Balance insufficient. The total price is {totalPrice} but you have a balance of {user.Portfolio.Cash}",
+                    UserFriendlyMessage = $"Balance insufficient. The total price is {totalPrice} but you have a balance of {user.Portfolio.Cash}",
                     AdditionalData = new
                     {
                         TotalPrice = totalPrice, UserBalance = user.Portfolio.Cash, Dto = dto,
@@ -136,7 +140,9 @@ namespace SolidTradeServer.Services
                 _database.Portfolios.Update(user.Portfolio);
                 _database.HistoricalPositions.Add(historicalPositions);
                 
+                _logger.Information("Trying to save buy stock with isin {@Isin} for User with uid {@Uid}", dto.Isin, uid);
                 await _database.SaveChangesAsync();
+                _logger.Information("Save buy stock with isin {@Isin} for User with uid {@Uid} was successful", dto.Isin, uid);
                 return _mapper.Map<StockPositionResponseDto>(newStock);
             }
             catch (Exception e)
@@ -224,7 +230,9 @@ namespace SolidTradeServer.Services
                 _database.Portfolios.Update(user.Portfolio);
                 _database.HistoricalPositions.Add(historicalPositions);
                 
+                _logger.Information("Trying to save sell stock with isin {@Isin} for User with uid {@Uid}", dto.Isin, uid);
                 await _database.SaveChangesAsync();
+                _logger.Information("Save sell stock with isin {@Isin} for User with uid {@Uid} was successful", dto.Isin, uid);
                 return _mapper.Map<StockPositionResponseDto>(stockPosition);
             }
             catch (Exception e)

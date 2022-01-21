@@ -1,8 +1,7 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using FirebaseAdmin.Auth;
 using Microsoft.Extensions.Configuration;
-using OneOf;
+using Serilog;
 
 namespace SolidTradeServer.Services
 {

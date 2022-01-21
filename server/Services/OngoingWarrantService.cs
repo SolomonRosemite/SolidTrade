@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Linq;
 using System.Net;
-using System.Threading;
 using System.Threading.Tasks;
 using AutoMapper;
 using Microsoft.EntityFrameworkCore;
 using OneOf;
-using OneOf.Types;
+using Serilog;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Dtos.OngoingWarrant.Response;
 using SolidTradeServer.Data.Dtos.Shared.OngoingPosition.Request;
@@ -23,6 +22,8 @@ namespace SolidTradeServer.Services
 {
     public class OngoingWarrantService
     {
+        private readonly ILogger _logger = Log.ForContext<OngoingWarrantService>();
+        
         private readonly TradeRepublicApiService _trApiService;
         private readonly DbSolidTrade _database;
         private readonly IMapper _mapper;
@@ -67,6 +68,8 @@ namespace SolidTradeServer.Services
                     Message = $"Ongoing warrant with id: {id} could not be found",
                 }, HttpStatusCode.NotFound);
             }
+            
+            _logger.Information("User with user uid {@Uid} fetched ongoing warrant with ongoing warrant id {@OngoingWarrantId} successfully", uid, id);
 
             return _mapper.Map<OngoingWarrantPositionResponseDto>(warrant);
         }
@@ -118,9 +121,14 @@ namespace SolidTradeServer.Services
             try
             {
                 var entity = _database.OngoingWarrantPositions.Add(ongoingWarrant);
-                await _database.SaveChangesAsync();
                 
-                _trApiService.AddOngoingRequestRequest(dto.Isin, PositionType.Warrant, entity.Entity.Id);
+                _logger.Information("Trying to save open ongoing warrant with isin {@Isin} for User with uid {@Uid}", dto.Isin, uid);
+                await _database.SaveChangesAsync();
+                _logger.Information("Save open ongoing warrant with isin {@Isin} for User with uid {@Uid} was successful", dto.Isin, uid);
+                
+                _logger.Information("Add ongoing warrant with isin {@Isin} to trade republic ongoing requests", dto.Isin);
+                
+                _trApiService.AddOngoingRequest(dto.Isin, PositionType.Warrant, entity.Entity.Id);
 
                 return _mapper.Map<OngoingWarrantPositionResponseDto>(ongoingWarrant);
             }
@@ -156,7 +164,10 @@ namespace SolidTradeServer.Services
             {
                 _database.OngoingWarrantPositions.Remove(warrant);
                 
+                _logger.Information("Trying to save close ongoing warrant with id {@OngoingWarrantId} for User with uid {@Uid}", dto.Id, uid);
                 await _database.SaveChangesAsync();
+                _logger.Information("Save close ongoing warrant with id {@OngoingWarrantId} for User with uid {@Uid} was successful", dto.Id, uid);
+                
                 return _mapper.Map<OngoingWarrantPositionResponseDto>(warrant);
             }
             catch (Exception e)

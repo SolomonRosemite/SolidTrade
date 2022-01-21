@@ -59,7 +59,7 @@ namespace SolidTradeServer.Services.TradeRepublic
             _webSocket.Connect();
         }
         
-        public void AddOngoingRequestRequest(string isin, PositionType positionType, int entityId)
+        public void AddOngoingRequest(string isin, PositionType positionType, int entityId)
         {
             var id = GetNewId();
             _runningRequestsAsync.Add(id, (positionType, entityId));
@@ -204,11 +204,11 @@ namespace SolidTradeServer.Services.TradeRepublic
                 var ids = results.Select(o => o.AsT0);
 
                 for (int i = 0; i < ongoingWarrantPositions.Count; i++)
-                    AddOngoingRequestRequest(ongoingWarrantPositions[i].Isin + "." + ids
+                    AddOngoingRequest(ongoingWarrantPositions[i].Isin + "." + ids
                         .First(p => p.Isin == ongoingWarrantPositions[i].Isin).ExchangeIds.First(), PositionType.Warrant, ongoingWarrantPositions[i].Id);
 
                 for (int i = 0; i < ongoingKnockoutPositions.Count; i++)
-                    AddOngoingRequestRequest(ongoingKnockoutPositions[i].Isin + "." + ids
+                    AddOngoingRequest(ongoingKnockoutPositions[i].Isin + "." + ids
                         .First(p => p.Isin == ongoingKnockoutPositions[i].Isin).ExchangeIds.First(), PositionType.Knockout, ongoingKnockoutPositions[i].Id);
             }
             catch (Exception e)

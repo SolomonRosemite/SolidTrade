@@ -28,7 +28,7 @@ namespace SolidTradeServer.Controllers
         
         [HttpGet("{username}")]
         public async Task<IActionResult> GetByUsername(string username)
-            => MatchResult(await _userService.SearchUserByUsername(username));
+            => MatchResult(await _userService.SearchUserByUsername(username, Request.Headers[Shared.UidHeader]));
 
         [HttpPatch]
         public async Task<IActionResult> UpdateUser([FromForm] UpdateUserDto dto)

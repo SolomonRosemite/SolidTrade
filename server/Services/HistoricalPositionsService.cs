@@ -53,7 +53,7 @@ namespace SolidTradeServer.Services
                 .Where(p => p.UserId == userId)
                 .ToListAsync();
             
-            _logger.Information("User with user uid {@Uid} fetched user portfolio with user id {@UserId} successfully", uid, userId);
+            _logger.Information("User with user uid {@Uid} fetched portfolio with user id {@UserId} successfully", uid, userId);
 
             return _mapper.Map<List<HistoricalPosition>, List<HistoricalPositionResponseDto>>(historicalPositions);
         }
