@@ -3,9 +3,9 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using AutoMapper;
-using Google.Apis.Auth.OAuth2;
 using Microsoft.EntityFrameworkCore;
 using OneOf;
+using Serilog;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Dtos.HistoricalPosition.Response;
 using SolidTradeServer.Data.Entities;
@@ -16,6 +16,7 @@ namespace SolidTradeServer.Services
 {
     public class HistoricalPositionsService
     {
+        private readonly ILogger _logger = Log.ForContext<HistoricalPositionsService>();
         private readonly DbSolidTrade _database;
         private readonly IMapper _mapper;
 
@@ -51,6 +52,8 @@ namespace SolidTradeServer.Services
                 .AsQueryable()
                 .Where(p => p.UserId == userId)
                 .ToListAsync();
+            
+            _logger.Information("User with user uid {@Uid} fetched user portfolio with user id {@UserId} successfully", uid, userId);
 
             return _mapper.Map<List<HistoricalPosition>, List<HistoricalPositionResponseDto>>(historicalPositions);
         }

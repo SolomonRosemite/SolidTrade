@@ -98,17 +98,17 @@ namespace SolidTradeServer.Services
             
             var totalPrice = trResponse.Ask.Price * dto.NumberOfShares;
 
-            if (totalPrice > user.Portfolio.Balance)
+            if (totalPrice > user.Portfolio.Cash)
             {
                 return new ErrorResponse(new InsufficientFounds
                 {
                     Title = "Insufficient funds",
                     Message = "User founds not sufficient for purchase.",
                     UserFriendlyMessage =
-                        $"Balance insufficient. The total price is {totalPrice} but you have a balance of {user.Portfolio.Balance}",
+                        $"Balance insufficient. The total price is {totalPrice} but you have a balance of {user.Portfolio.Cash}",
                     AdditionalData = new
                     {
-                        TotalPrice = totalPrice, UserBalance = user.Portfolio.Balance, Dto = dto,
+                        TotalPrice = totalPrice, UserBalance = user.Portfolio.Cash, Dto = dto,
                     },
                 }, HttpStatusCode.PaymentRequired);
             }
@@ -141,7 +141,7 @@ namespace SolidTradeServer.Services
                 else
                     newKnockout = _database.KnockoutPositions.Update(newKnockout).Entity;
 
-                user.Portfolio.Balance -= totalPrice;
+                user.Portfolio.Cash -= totalPrice;
 
                 _database.Portfolios.Update(user.Portfolio);
                 _database.HistoricalPositions.Add(historicalPositions);
@@ -221,7 +221,7 @@ namespace SolidTradeServer.Services
 
             try
             {
-                user.Portfolio.Balance += totalGain;
+                user.Portfolio.Cash += totalGain;
                 
                 if (knockoutPosition.NumberOfShares == dto.NumberOfShares)
                     _database.KnockoutPositions.Remove(knockoutPosition);

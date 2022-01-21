@@ -94,7 +94,7 @@ namespace SolidTradeServer.Common
                 err =>
                 {
                     var ex = err.Error.Exception;
-                    err.Error.Exception = new Exception("Exception is defined in the 'exceptions' field.");
+                    err.Error.Exception = ex is not null ? new Exception("Exception is defined in the 'exceptions' field.") : null;
                     _logger.Error(ex, LogMessageTemplate, err.Error);
 
                     return new ObjectResult(new UnexpectedError

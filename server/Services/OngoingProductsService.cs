@@ -134,10 +134,10 @@ namespace SolidTradeServer.Services
                 
                 if (isBuyOrSell is BuyOrSell.Buy)
                 {
-                    if (totalPrice > ongoingProduct.Portfolio.Balance)
+                    if (totalPrice > ongoingProduct.Portfolio.Cash)
                     {
                         var message =
-                            $"User ongoing product was satisfied but had not sufficient founds. User balance: {ongoingProduct.Portfolio.Balance} but required capital is: {totalPrice}.";
+                            $"User ongoing product was satisfied but had not sufficient founds. User balance: {ongoingProduct.Portfolio.Cash} but required capital is: {totalPrice}.";
                         
                         _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position could not be filled",
                             $"Your {GetOrderName(ongoingProduct.Type)} order could not be executed. {message}");
@@ -248,9 +248,9 @@ namespace SolidTradeServer.Services
                 _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position filled", $"Your {GetOrderName(ongoingProduct.Type)} order was executed.");
 
                 if (isBuyOrSell is BuyOrSell.Buy)
-                    ongoingProduct.Portfolio.Balance -= totalPrice;
+                    ongoingProduct.Portfolio.Cash -= totalPrice;
                 else 
-                    ongoingProduct.Portfolio.Balance += totalPrice;
+                    ongoingProduct.Portfolio.Cash += totalPrice;
 
                 database.Portfolios.Update(ongoingProduct.Portfolio);
                 database.HistoricalPositions.Add(historicalPosition);
@@ -370,10 +370,10 @@ namespace SolidTradeServer.Services
                 HistoricalPosition historicalPosition;
                 if (isBuyOrSell is BuyOrSell.Buy)
                 {
-                    if (totalPrice > ongoingProduct.Portfolio.Balance)
+                    if (totalPrice > ongoingProduct.Portfolio.Cash)
                     {
                         var message =
-                            $"User ongoing product was satisfied but had not sufficient founds. User balance: {ongoingProduct.Portfolio.Balance} but required capital is: {totalPrice}.";
+                            $"User ongoing product was satisfied but had not sufficient founds. User balance: {ongoingProduct.Portfolio.Cash} but required capital is: {totalPrice}.";
                         
                         _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position could not be filled",
                             $"Your {GetOrderName(ongoingProduct.Type)} order could not be executed. {message}");
@@ -484,9 +484,9 @@ namespace SolidTradeServer.Services
                 _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position filled", $"Your {GetOrderName(ongoingProduct.Type)} order was executed.");
 
                 if (isBuyOrSell is BuyOrSell.Buy)
-                    ongoingProduct.Portfolio.Balance -= totalPrice;
+                    ongoingProduct.Portfolio.Cash -= totalPrice;
                 else 
-                    ongoingProduct.Portfolio.Balance += totalPrice;
+                    ongoingProduct.Portfolio.Cash += totalPrice;
 
                 database.Portfolios.Update(ongoingProduct.Portfolio);
                 database.HistoricalPositions.Add(historicalPosition);

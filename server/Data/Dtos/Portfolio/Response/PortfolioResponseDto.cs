@@ -12,7 +12,9 @@ namespace SolidTradeServer.Data.Dtos.Portfolio.Response
     {
         public int UserId { get; set; }
         
-        public decimal Balance { get; set; }
+        public decimal Cash { get; set; }
+        
+        public decimal InitialCash { get; set; }
         
         public IReadOnlyCollection<StockPositionResponseDto> StockPositions { get; set; }
         public IReadOnlyCollection<WarrantPositionResponseDto> WarrantPositions { get; set; }

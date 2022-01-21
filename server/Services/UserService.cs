@@ -48,8 +48,8 @@ namespace SolidTradeServer.Services
                 DisplayName = dto.DisplayName,
                 Portfolio = new Portfolio
                 {
-                    Balance = dto.InitialBalance,
-                    InitialBalance = dto.InitialBalance,
+                    Cash = dto.InitialBalance,
+                    InitialCash = dto.InitialBalance,
                 },
                 HistoricalPositions = new List<HistoricalPosition>(),
                 HasPublicPortfolio = true,
