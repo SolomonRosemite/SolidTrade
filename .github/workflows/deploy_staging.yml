@@ -1,11 +1,11 @@
-name: Deploy Development
+name: Deploy Staging
 
 on:
   push:
     # Sequence of patterns matched against refs/heads
     branches:
-      # Push events on dev branch
-      - dev
+      # Push events on staging branch
+      - staging
 
   workflow_dispatch:
 
@@ -25,7 +25,7 @@ jobs:
         with:
           rm: true
           source: "."
-          target: "/root/projects/SolidTrade-Dev/"
+          target: "/root/projects/SolidTrade-Staging/"
 
       - name: Executing remote command
         uses: appleboy/ssh-action@master
@@ -35,6 +35,6 @@ jobs:
           PORT: ${{ secrets.PORT }}
           KEY: ${{ secrets.SSHKEY }}
           script: |
-            cd /root/projects/SolidTrade-Dev/server
-            chmod +x /root/projects/SolidTrade-Dev/server/start.sh
-            /root/projects/SolidTrade-Dev/server/start.sh
+            cd /root/projects/SolidTrade-Staging/server
+            chmod +x /root/projects/SolidTrade-Staging/server/start.sh
+            /root/projects/SolidTrade-Staging/server/start.sh
