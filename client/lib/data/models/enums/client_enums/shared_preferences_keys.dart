@@ -1,0 +1,4 @@
+enum SharedPreferencesKeys {
+  langTicker,
+  colorTheme,
+}

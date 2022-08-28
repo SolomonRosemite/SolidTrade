@@ -10,7 +10,6 @@
       <PackageReference Include="AutoMapper.Extensions.Microsoft.DependencyInjection" Version="8.1.1" />
       <PackageReference Include="CloudinaryDotNet" Version="1.15.2" />
       <PackageReference Include="FirebaseAdmin" Version="2.2.0" />
-      <PackageReference Include="Google.Cloud.Firestore" Version="2.4.0" />
       <PackageReference Include="Hangfire.AspNetCore" Version="1.7.28" />
       <PackageReference Include="Hangfire.Core" Version="1.7.28" />
       <PackageReference Include="Hangfire.Dashboard.BasicAuthorization" Version="1.0.2" />
@@ -39,10 +38,11 @@
         <NoWarn>NU1701</NoWarn>
       </PackageReference>
     </ItemGroup>
+
+<!--Solidtrade should only run with Docker therefore we don't copy the config as the docker compose will mount to the same folder.-->
     <ItemGroup>
-      <None Include="C:\Users\Jesse\Dev\Projects\SolidTrade\server\.editorconfig" />
-    </ItemGroup>
-    <ItemGroup>
-      <Compile Remove="Filters\ExceptionHandlerFilter.cs" />
+      <Content Update="Configuration\**">
+        <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      </Content>
     </ItemGroup>
 </Project>

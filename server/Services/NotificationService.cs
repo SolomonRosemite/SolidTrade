@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using FirebaseAdmin.Messaging;
 using Serilog;
@@ -20,21 +21,11 @@ namespace SolidTradeServer.Services
             
             _logger.Information("Send notification to user with id {@UserId} with message {@Data}", userId, data);
             
-            // Todo: See if metadata can also be send and received by the client.
-            // If so, using firestore to notify the client about a ongoing position being filled will not be necessary.
-            // We will use this notification message instead.
-
-            return Task.CompletedTask;
-            // Todo: Fix exception.
-            // return _fireMessaging.SendAsync(new Message
-            // {
-            //     Token = registrationToken,
-            //     Data = data,
-            //     Android =
-            //     {
-            //         Priority = Priority.Normal,
-            //     },
-            // });
+            return _fireMessaging.SendMulticastAsync(new MulticastMessage
+            {
+                Tokens = new []{ registrationToken },
+                Data = data,
+            });
         }
     }
 }

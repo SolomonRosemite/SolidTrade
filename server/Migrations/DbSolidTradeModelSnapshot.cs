@@ -41,8 +41,9 @@ namespace SolidTradeServer.Migrations
                         .HasMaxLength(12)
                         .HasColumnType("nvarchar(12)");
 
-                    b.Property<int>("NumberOfShares")
-                        .HasColumnType("int");
+                    b.Property<decimal>("NumberOfShares")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<decimal>("Performance")
                         .HasPrecision(18, 4)
@@ -88,8 +89,9 @@ namespace SolidTradeServer.Migrations
                         .HasMaxLength(12)
                         .HasColumnType("nvarchar(12)");
 
-                    b.Property<int>("NumberOfShares")
-                        .HasColumnType("int");
+                    b.Property<decimal>("NumberOfShares")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<int>("PortfolioId")
                         .HasColumnType("int");
@@ -130,8 +132,9 @@ namespace SolidTradeServer.Migrations
                         .HasMaxLength(12)
                         .HasColumnType("nvarchar(12)");
 
-                    b.Property<int>("NumberOfShares")
-                        .HasColumnType("int");
+                    b.Property<decimal>("NumberOfShares")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<int>("PortfolioId")
                         .HasColumnType("int");
@@ -181,8 +184,9 @@ namespace SolidTradeServer.Migrations
                         .HasMaxLength(12)
                         .HasColumnType("nvarchar(12)");
 
-                    b.Property<int>("NumberOfShares")
-                        .HasColumnType("int");
+                    b.Property<decimal>("NumberOfShares")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<int>("PortfolioId")
                         .HasColumnType("int");
@@ -248,6 +252,42 @@ namespace SolidTradeServer.Migrations
                     b.ToTable("Portfolios");
                 });
 
+            modelBuilder.Entity("SolidTradeServer.Data.Entities.ProductImageRelation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasAnnotation("SqlServer:ValueGenerationStrategy", SqlServerValueGenerationStrategy.IdentityColumn);
+
+                    b.Property<string>("CorrespondingImageUrl")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("Isin")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("nvarchar(12)");
+
+                    b.Property<int>("ThemeColor")
+                        .HasColumnType("int");
+
+                    b.Property<byte[]>("TimeStamp")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ProductImageRelations");
+                });
+
             modelBuilder.Entity("SolidTradeServer.Data.Entities.StockPosition", b =>
                 {
                     b.Property<int>("Id")
@@ -267,8 +307,9 @@ namespace SolidTradeServer.Migrations
                         .HasMaxLength(12)
                         .HasColumnType("nvarchar(12)");
 
-                    b.Property<int>("NumberOfShares")
-                        .HasColumnType("int");
+                    b.Property<decimal>("NumberOfShares")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<int>("PortfolioId")
                         .HasColumnType("int");
@@ -362,8 +403,9 @@ namespace SolidTradeServer.Migrations
                         .HasMaxLength(12)
                         .HasColumnType("nvarchar(12)");
 
-                    b.Property<int>("NumberOfShares")
-                        .HasColumnType("int");
+                    b.Property<decimal>("NumberOfShares")
+                        .HasPrecision(18, 4)
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<int>("PortfolioId")
                         .HasColumnType("int");

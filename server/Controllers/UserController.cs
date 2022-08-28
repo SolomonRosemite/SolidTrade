@@ -19,7 +19,7 @@ namespace SolidTradeServer.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateUser([FromBody] CreateUserRequestDto dto)
+        public async Task<IActionResult> CreateUser([FromForm] CreateUserRequestDto dto)
             => MatchResult(await _userService.CreateUser(dto, Request.Headers[Shared.UidHeader]));
         
         [HttpGet("{id:int}")]
@@ -29,6 +29,10 @@ namespace SolidTradeServer.Controllers
         [HttpGet("{username}")]
         public async Task<IActionResult> GetByUsername(string username)
             => MatchResult(await _userService.SearchUserByUsername(username, Request.Headers[Shared.UidHeader]));
+        
+        [HttpGet]
+        public async Task<IActionResult> GetByUid([FromQuery] GetUserByUidRequestDto dto)
+            => MatchResult(await _userService.GetUserByUid(dto.Uid, Request.Headers[Shared.UidHeader]));
 
         [HttpPatch]
         public async Task<IActionResult> UpdateUser([FromForm] UpdateUserDto dto)

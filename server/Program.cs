@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Threading;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -18,8 +20,8 @@ namespace SolidTradeServer
             Host.CreateDefaultBuilder(args)
                 .ConfigureHostConfiguration(hostConfig =>
                 {
-                    hostConfig.AddJsonFile("appsettings.json");
-                    hostConfig.AddJsonFile("appsettings.credentials.json");
+                    hostConfig.AddJsonFile("config/appsettings.json");
+                    hostConfig.AddJsonFile("config/appsettings.credentials.json");
                     hostConfig.AddEnvironmentVariables();
                 })
                 .UseSerilog((context, configuration) =>
@@ -50,7 +52,6 @@ namespace SolidTradeServer
                 })
                 .ConfigureWebHostDefaults(webBuilder => { webBuilder.UseStartup<Startup>(); });
 
-        public static void ExitApplication()
-        => Environment.Exit(-1);
+        public static void ExitApplication() => Environment.Exit(-1);
     }
 }

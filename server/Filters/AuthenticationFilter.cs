@@ -20,7 +20,7 @@ namespace SolidTradeServer.Filters
             var request = context.HttpContext.Request;
             var path = request.Path.Value?.ToLower();
 
-            if (path is "/" or "/healthcheck" or null)
+            if (path is "/" or "/healthcheck" or "/image" or null)
             {
                 await next();
                 return;

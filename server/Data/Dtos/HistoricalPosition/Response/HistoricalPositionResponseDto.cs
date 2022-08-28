@@ -13,7 +13,7 @@ namespace SolidTradeServer.Data.Dtos.HistoricalPosition.Response
         
         public decimal Performance { get; set; }
         
-        public int NumberOfShares { get; set; }
+        public decimal NumberOfShares { get; set; }
         
         public string Isin { get; set; }
     }

@@ -1,5 +1,5 @@
 ﻿using System;
-using SolidTradeServer.Data.Dtos.Knockout.Response;
+using SolidTradeServer.Data.Dtos.Warrant.Response;
 using SolidTradeServer.Data.Entities.Common;
 using SolidTradeServer.Data.Models.Enums;
 
@@ -13,8 +13,8 @@ namespace SolidTradeServer.Data.Dtos.OngoingWarrant.Response
         
         public EnterOrExitPositionType Type { get; set; }
         
-        public KnockoutPositionResponseDto CurrentKnockoutPosition { get; set; }
+        public WarrantPositionResponseDto CurrentWarrantPosition { get; set; }
         public decimal Price { get; set; }
-        public int NumberOfShares { get; set; }
+        public decimal NumberOfShares { get; set; }
     }
 }

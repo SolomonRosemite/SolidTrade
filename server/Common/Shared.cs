@@ -21,7 +21,8 @@ namespace SolidTradeServer.Common
     {
         private static readonly ILogger _logger = Log.Logger;
         
-        public const string LogMessageTemplate = "{@LogParameters}"; 
+        public const string LogMessageTemplate = "{@LogParameters}";
+
         public static string UidHeader => "_Uid";
 
         public static string GetTradeRepublicProductInfoRequestString(string isin)
@@ -29,6 +30,12 @@ namespace SolidTradeServer.Common
 
         public static string GetTradeRepublicProductPriceRequestString(string isin)
             => "{\"type\":\"ticker\",\"id\":\"" + isin + "\"}";
+
+        public static string GetTradeRepublicProductImageUrl(string isin, ProductImageThemeColor themeColor)
+            => $"https://assets.traderepublic.com/img/logos/{isin}/{themeColor.ToString().ToLower()}.svg";
+
+        public static string GetTradingViewIndexProductImageUrl(string isin)
+            => $"https://s3-symbol-logo.tradingview.com/country/{isin[..2]}.svg";
         
         private static readonly JsonSerializerSettings _jsonSerializerOptions = new()
         {
@@ -37,6 +44,14 @@ namespace SolidTradeServer.Common
                 NamingStrategy = new CamelCaseNamingStrategy()
             },
         };
+
+        public static string GetUserFriendlyValidationError(ActionContext actionContext)
+        {
+            (string fieldName, var value) = actionContext.ModelState.First(e => e.Value.Errors.Any());
+            string errorMessage = value.Errors.First().ErrorMessage;
+
+            return $"{fieldName} validation error. {errorMessage}";
+        }
         
         public static OneOf<T, UnexpectedError> ConvertToObject<T>(string content, JsonSerializerSettings jsonSerializerOptions = null)
         {

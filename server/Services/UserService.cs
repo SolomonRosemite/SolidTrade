@@ -56,7 +56,7 @@ namespace SolidTradeServer.Services
             };
 
             var usernameTaken = await _database.Users.AsQueryable()
-                .AnyAsync(u => EF.Functions.Like(u.Username, $"%{user.Username}%"));
+                .AnyAsync(u => EF.Functions.Like(u.Username, $"{user.Username}"));
             
             var userUidAlreadyInUse = await _database.Users.AsQueryable()
                 .AnyAsync(u => u.Uid == user.Uid);
@@ -74,7 +74,7 @@ namespace SolidTradeServer.Services
             }
             
             
-            if (await _database.Users.AsQueryable().AnyAsync(u => EF.Functions.Like(u.Username, $"%{user.Username}%")))
+            if (await _database.Users.AsQueryable().AnyAsync(u => EF.Functions.Like(u.Email, $"{user.Email}")))
             {
                 return new ErrorResponse(new UserUpdateFailed
                 {
@@ -86,17 +86,27 @@ namespace SolidTradeServer.Services
 
             try
             {
-                if ((await CreateUserProfilePictureWithSeed(dto.ProfilePictureSeed, uid))
-                    .TryPickT1(out var err, out var profilePictureUrl))
+                string updatedProfilePicture = null;
+                if (dto.ProfilePictureFile is not null)
                 {
-                    return new ErrorResponse(err, HttpStatusCode.InternalServerError);
+                    var result = await CreateUserProfilePictureWithFile(dto.ProfilePictureFile, uid);
+
+                    if (result.TryPickT1(out var error, out var uri))
+                        return new ErrorResponse(error, HttpStatusCode.InternalServerError);
+
+                    updatedProfilePicture = uri.AbsoluteUri;
+                } else if (dto.ProfilePictureSeed is not null)
+                {
+                    var result = await CreateUserProfilePictureWithSeed(dto.ProfilePictureSeed, uid);
+
+                    if (result.TryPickT1(out var error, out var uri))
+                        return new ErrorResponse(error, HttpStatusCode.InternalServerError);
+                
+                    updatedProfilePicture = uri.AbsoluteUri;
                 }
                 
-                user.ProfilePictureUrl = profilePictureUrl.AbsoluteUri;
+                user.ProfilePictureUrl = updatedProfilePicture;
 
-                await OngoingProductsService.Firestore.Document($"users/{uid}")
-                    .SetAsync(new { Update = "None" });
-                
                 var newUser = await _database.Users.AddAsync(user);
                 
                 _logger.Information("Trying to save new User with uid {@Uid}", uid);
@@ -127,6 +137,7 @@ namespace SolidTradeServer.Services
                 {
                     Title = "User not found",
                     Message = $"The user with id: {id} could not be found.",
+                    UserFriendlyMessage = "The user you are looking for could not be found.",
                 }, HttpStatusCode.NotFound);
             }
             
@@ -136,8 +147,34 @@ namespace SolidTradeServer.Services
             if (user.Uid != uid)
                 userResponse.Email = null;
 
-            _logger.Information("User with user uid {@Uid} fetched user with user id {@UserId} successfully", uid, id);
+            _logger.Information("User with user uid {@Uid} fetched users with user id {@UserId} successfully", uid, id);
             
+            return userResponse;
+        }
+        
+        public async Task<OneOf<UserResponseDto, ErrorResponse>> GetUserByUid(string queriedUid, string uid)
+        {
+            queriedUid ??= uid;
+            
+            var user = await _database.Users.AsQueryable().FirstOrDefaultAsync(u => u.Uid == queriedUid);
+
+            if (user is null)
+            {
+                return new ErrorResponse(new NotFound
+                {
+                    Title = "User not found",
+                    Message = $"The user with uid: {queriedUid} could not be found.",
+                    UserFriendlyMessage = "The user you are looking for could not be found.",
+                }, HttpStatusCode.NotFound);
+            }
+
+            _logger.Information("User with user uid {@Uid} fetched by uid {@QueriedUid} successfully", uid, queriedUid);
+
+            var userResponse = _mapper.Map<UserResponseDto>(user);
+
+            if (uid != user.Uid)
+                userResponse.Email = null;
+
             return userResponse;
         }
         
@@ -147,7 +184,7 @@ namespace SolidTradeServer.Services
                 .Where(u =>  EF.Functions.Like(u.Username, $"{username}%"))
                 .ToListAsync();
 
-            _logger.Information("User with user uid {@Uid} fetched {@NumberOfFoundUsers} user by username {@Username} successfully", uid, users.Count, username);
+            _logger.Information("User with user uid {@Uid} fetched {@NumberOfFoundUsers} users by username {@Username} successfully", uid, users.Count, username);
             
             return users.Select(user =>
             {
@@ -174,10 +211,11 @@ namespace SolidTradeServer.Services
                 {
                     Title = "User not found",
                     Message = $"User with uid: {uid} could not be found.",
+                    UserFriendlyMessage = "The user you are looking for could not be found.",
                 }, HttpStatusCode.NotFound);
             
             if (dto.Username is not null && await _database.Users
-                .AsQueryable().AnyAsync(u => EF.Functions.Like(u.Username, $"%{user.Username}%")))
+                .AsQueryable().AnyAsync(u => EF.Functions.Like(u.Username, $"{dto.Username}")))
             {
                 return new ErrorResponse(new UserUpdateFailed
                 {
@@ -188,7 +226,7 @@ namespace SolidTradeServer.Services
             }
 
             if (dto.Email is not null && await _database.Users
-                .AsQueryable().AnyAsync(u => EF.Functions.Like(u.Email, $"%{dto.Email}%")))
+                .AsQueryable().AnyAsync(u => EF.Functions.Like(u.Email, $"{dto.Email}")))
             {
                 return new ErrorResponse(new UserUpdateFailed
                 {
@@ -221,6 +259,7 @@ namespace SolidTradeServer.Services
             user.Email = dto.Email ?? user.Email;
             user.Username = dto.Username ?? user.Username;
             user.DisplayName = dto.DisplayName ?? user.DisplayName;
+            user.HasPublicPortfolio = dto.PublicPortfolio ?? user.HasPublicPortfolio;
 
             string prevProfilePicture = null;
             if (updatedProfilePicture is not null && updatedProfilePicture != user.ProfilePictureUrl)
@@ -288,10 +327,6 @@ namespace SolidTradeServer.Services
                 return error;
             }
             
-            await OngoingProductsService.Firestore
-                .Document($"users/{uid}")
-                .DeleteAsync();
-
             try
             {
                 _database.Users.Remove(user);
@@ -331,7 +366,7 @@ namespace SolidTradeServer.Services
 
         private async Task<OneOf<Success, UnexpectedError>> DeleteUserProfilePicture(string profilePictureUrl)
         {
-            return await _cloudinaryService.DeleteProfilePicture(profilePictureUrl);
+            return await _cloudinaryService.DeleteImage(profilePictureUrl);
         }
     }
 }

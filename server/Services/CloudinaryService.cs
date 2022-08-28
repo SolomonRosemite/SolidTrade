@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Resources;
 using System.Threading.Tasks;
 using CloudinaryDotNet;
@@ -8,6 +9,10 @@ using Microsoft.Extensions.Configuration;
 using OneOf;
 using OneOf.Types;
 using Serilog;
+using SolidTradeServer.Common;
+using SolidTradeServer.Data.Dtos.ProductImage.Request;
+using SolidTradeServer.Data.Dtos.ProductImage.Response;
+using SolidTradeServer.Data.Models.Enums;
 using SolidTradeServer.Data.Models.Errors;
 using static SolidTradeServer.Common.Shared;
 
@@ -33,17 +38,17 @@ namespace SolidTradeServer.Services
             _cloudinary = new Cloudinary(account) { Api = { Secure = true } };
         }
 
+        public Task<OneOf<UploadResult, UnexpectedError>> UploadTradeRepublicProductImage(string isin, ProductImageThemeColor themeColor)
+            => UploadTradeRepublicProductImage($"Projects/SolidTrade-{_environment}/ProductImages", isin, themeColor);
+        
         public Task<OneOf<UploadResult, UnexpectedError>> UploadProfilePicture(string url, string uid)
-            => UploadImage(new FileDescription(url), 75, uid, $"Projects/SolidTrade-{_environment}/");
+            => UploadProfileImage(new FileDescription(url), 75, uid, $"Projects/SolidTrade-{_environment}/");
 
         public Task<OneOf<UploadResult, UnexpectedError>> UploadProfilePicture(IFormFile file, string uid)
-            => UploadImage(new FileDescription(file.Name, file.OpenReadStream()),
+            => UploadProfileImage(new FileDescription(file.Name, file.OpenReadStream()),
                 GetAdjustedQualityCompressionRatio(file.Length), uid, $"Projects/SolidTrade-{_environment}/");
 
-        public Task<OneOf<Success, UnexpectedError>> DeleteProfilePicture(string url) 
-            => DeleteImage(url);
-
-        private async Task<OneOf<Success, UnexpectedError>> DeleteImage(string url)
+        public async Task<OneOf<Success, UnexpectedError>> DeleteImage(string url)
         {
             var httpOrHttps = url.StartsWith("https") ? "https" : "http";
 
@@ -57,7 +62,15 @@ namespace SolidTradeServer.Services
                 var publicId = s1.Substring(slashIndex + 1, s1.LastIndexOf('.') - slashIndex - 1);
 
                 var deletionParams = new DeletionParams(publicId);
-                await _cloudinary.DestroyAsync(deletionParams);
+                var deletionResult = await _cloudinary.DestroyAsync(deletionParams);
+
+                if (deletionResult.Error is not null)
+                {
+                    var exception = new Exception("Cloudinary deletion failed");
+                    exception.Data.Add("Error", deletionResult.Error.Message);
+                    
+                    throw exception;
+                }
                 
                 _logger.Information("Deletion image with url {@ImageUrl} and public id {@PublicId} was successful", url, publicId);
                 return new Success();
@@ -77,7 +90,7 @@ namespace SolidTradeServer.Services
             }
         }
         
-        private async Task<OneOf<UploadResult, UnexpectedError>> UploadImage(FileDescription description, int quality, string uid, string folder)
+        private async Task<OneOf<UploadResult, UnexpectedError>> UploadProfileImage(FileDescription description, int quality, string uid, string folder)
         {
             try
             {
@@ -109,10 +122,60 @@ namespace SolidTradeServer.Services
                 return error;
             }
         }
+        
+        private async Task<OneOf<UploadResult, UnexpectedError>> UploadTradeRepublicProductImage(string folder,
+            string isin, ProductImageThemeColor themeColor, bool isRetry = false, FileDescription description = null)
+        {
+            var identifier = ProductImageService.GetIdentifier(isin, themeColor);
+            description ??= new FileDescription(GetTradeRepublicProductImageUrl(isin, themeColor));
+            
+            try
+            {
+                var uploadParams = new ImageUploadParams
+                {
+                    File = description,
+                    Folder = folder,
+                    Transformation = new Transformation().AspectRatio(1).Crop("crop"),
+                    FilenameOverride = identifier,
+                    UseFilename = true,
+                };
+
+                _logger.Information("Trying to upload image with isin {@Isin} and theme color of {@ThemeColor}", isin, themeColor);
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+
+                if (uploadResult.Error != null)
+                {
+                    _logger.Warning(
+                        "Upload image with isin {@Isin} and theme color of {@ThemeColor} failed with error message {@ErrorMessage}",
+                        isin, themeColor, uploadResult.Error.Message);
+                    throw new Exception(uploadResult.Error.Message);
+                }
+                
+                _logger.Information("Image upload with isin {@Isin} was successful", isin);
+
+                return uploadResult;
+            }
+            catch (Exception e)
+            {
+                if (!isRetry)
+                    return await UploadTradeRepublicProductImage(folder, isin, themeColor, true, new FileDescription(GetTradingViewIndexProductImageUrl(isin)));
+                
+                var error = new UnexpectedError
+                {
+                    Title = "Upload failed",
+                    Message = "The image upload failed.",
+                    AdditionalData = new { FileDescription = description, folder, isin, themeColor },
+                    Exception = e,
+                };
+                
+                _logger.Error(LogMessageTemplate, error);
+                return error;
+            }
+        }
 
         private static int GetAdjustedQualityCompressionRatio(long fileSize)
         {
-            const int threshold = 1000000; // 1MB
+            const int threshold = 1500000; // 1.5MB
             var ratio = (double) threshold / fileSize;
 
             return ratio >= 1 ? 100 : (int)(ratio * 100);

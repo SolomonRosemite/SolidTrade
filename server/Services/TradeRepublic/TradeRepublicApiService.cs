@@ -19,9 +19,9 @@ namespace SolidTradeServer.Services.TradeRepublic
         {
         }
 
-        private async Task<OneOf<Success, ErrorResponse>> IsStockMarketOpen(string isinWithoutExchangeExtension)
+        private async Task<OneOf<Success, ErrorResponse>> IsStockMarketOpen(string isinWithExchangeExtension)
         {
-            string content = "{\"type\":\"aggregateHistoryLight\",\"range\":\"1d\",\"id\":\""+ isinWithoutExchangeExtension + "\"}";
+            string content = "{\"type\":\"aggregateHistoryLight\",\"range\":\"1d\",\"id\":\""+ isinWithExchangeExtension + "\"}";
             var oneOfResult = await AddRequest<TradeRepublicIsStockMarketOpenResponseDto>(content, CancellationToken.None);
             
             var result = oneOfResult.Match<OneOf<bool, UnexpectedError>>(dto =>

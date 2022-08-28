@@ -1,0 +1,117 @@
+# Workflows for building mobile app of Solidtrade
+
+workflows:
+  staging-workflow:
+    name: Staging Workflow
+    max_build_duration: 60
+    environment:
+      groups:
+        - credentials-staging
+      flutter: 2.10.2
+      xcode: latest
+      cocoapods: default
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: staging
+          include: true
+          source: true
+      tag_patterns:
+        - pattern: "*"
+          include: true
+    scripts:
+      - |
+        # set up key.properties
+        echo $FCI_KEYSTORE | base64 --decode > $FCI_KEYSTORE_PATH
+        cat >> "$FCI_BUILD_DIR/client/android/key.properties" <<EOF
+        storePassword=$FCI_KEYSTORE_PASSWORD
+        keyPassword=$FCI_KEY_PASSWORD
+        keyAlias=$FCI_KEY_ALIAS
+        storeFile=/tmp/keystore.keystore
+        EOF
+      - |
+        # set up local properties
+        echo "flutter.sdk=$HOME/programs/flutter" > "$FCI_BUILD_DIR/client/android/local.properties"
+      - echo $FIREBASE_CREDENTIALS
+      - cd client && flutter packages pub get
+      - cd client && flutter test
+      - |
+        # Create directory if it doesn't exist
+        mkdir -p $FCI_BUILD_DIR/client/assets/config
+
+        # Write out the environment variable as a json file
+        echo $APP_CONFIG | base64 --decode > $FCI_BUILD_DIR/client/assets/config/app_config.json
+
+        # Write out the firebase credentials as file
+        echo $FIREBASE_CREDENTIALS | base64 --decode > $FCI_BUILD_DIR/client/android/app/google-services.json
+
+        cd $FCI_BUILD_DIR/client
+
+        # Generate mappings
+        flutter pub run build_runner build
+      - cd client && flutter build apk --release -t lib/app/main_staging.dart
+    artifacts:
+      - client/build/**/outputs/apk/**/*.apk
+      - client/build/**/outputs/bundle/**/*.aab
+      - client/build/**/outputs/**/mapping.txt
+      - client/*.snap
+      - client/build/windows/**/*.msix
+      - client/flutter_drive.log
+
+  production-workflow:
+    name: Production Workflow
+    max_build_duration: 60
+    environment:
+      groups:
+        - credentials-stable
+      flutter: 2.8.1
+      xcode: latest
+      cocoapods: default
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: stable
+          include: true
+          source: true
+      tag_patterns:
+        - pattern: "*"
+          include: true
+    scripts:
+      - |
+        # set up key.properties
+        echo $FCI_KEYSTORE | base64 --decode > $FCI_KEYSTORE_PATH
+        cat >> "$FCI_BUILD_DIR/client/android/key.properties" <<EOF
+        storePassword=$FCI_KEYSTORE_PASSWORD
+        keyPassword=$FCI_KEY_PASSWORD
+        keyAlias=$FCI_KEY_ALIAS
+        storeFile=/tmp/keystore.keystore
+        EOF
+      - |
+        # set up local properties
+        echo "flutter.sdk=$HOME/programs/flutter" > "$FCI_BUILD_DIR/client/android/local.properties"
+      - cd client && flutter packages pub get
+      - cd client && flutter test
+      - |
+        # Create directory if it doesn't exist
+        mkdir -p $FCI_BUILD_DIR/client/assets/config
+
+        # Write out the environment variable as a json file
+        echo $APP_CONFIG | base64 --decode > $FCI_BUILD_DIR/client/assets/config/app_config.json
+
+        # Write out the firebase credentials as file
+        echo $FIREBASE_CREDENTIALS | base64 --decode > $FCI_BUILD_DIR/client/android/app/google-services.json
+
+        cd $FCI_BUILD_DIR/client
+
+        # Generate mappings
+        flutter pub run build_runner build
+      - cd client && flutter build apk --release -t lib/app/main_prod.dart
+    artifacts:
+      - client/build/**/outputs/apk/**/*.apk
+      - client/build/**/outputs/bundle/**/*.aab
+      - client/build/**/outputs/**/mapping.txt
+      - client/*.snap
+      - client/build/windows/**/*.msix
+      - client/flutter_drive.log

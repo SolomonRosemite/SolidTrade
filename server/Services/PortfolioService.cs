@@ -31,15 +31,10 @@ namespace SolidTradeServer.Services
                 .Include(p => p.User)
                 .Include(p => p.WarrantPositions)
                 .Include(p => p.StockPositions)
-                .Include(p => p.KnockOutPositions);
+                .Include(p => p.KnockOutPositions)
+                .Include(p => p.OngoingWarrantPositions)
+                .Include(p => p.OngoingKnockOutPositions);
 
-            if (dto.IncludeOngoingPositions)
-            {
-                query
-                    .Include(p => p.OngoingWarrantPositions)
-                    .Include(p => p.OngoingKnockOutPositions);
-            }
-            
             if (dto.PortfolioId.HasValue)
             {
                 var portfolio = await query.FirstOrDefaultAsync(p => p.Id == dto.PortfolioId);

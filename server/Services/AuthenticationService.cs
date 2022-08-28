@@ -19,12 +19,12 @@ namespace SolidTradeServer.Services
             if (_configuration.GetValue<bool>("IsLocalDevelopment"))
             {
                 // When we are testing the api we just provide the uid in the Authorization header to authenticate.
-                try { await FirebaseAuth.DefaultInstance.GetUserAsync(token); }
-                catch
+                try
                 {
-                    return (false, null);
+                    await FirebaseAuth.DefaultInstance.GetUserAsync(token);
+                    return (true, token);
                 }
-                return (true, token);
+                catch { }
             }
             
             try

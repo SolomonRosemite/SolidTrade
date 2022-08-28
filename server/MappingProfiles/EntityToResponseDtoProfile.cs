@@ -4,6 +4,7 @@ using SolidTradeServer.Data.Dtos.Knockout.Response;
 using SolidTradeServer.Data.Dtos.OngoingKnockout.Response;
 using SolidTradeServer.Data.Dtos.OngoingWarrant.Response;
 using SolidTradeServer.Data.Dtos.Portfolio.Response;
+using SolidTradeServer.Data.Dtos.ProductImage.Response;
 using SolidTradeServer.Data.Dtos.Stock.Response;
 using SolidTradeServer.Data.Dtos.User.Response;
 using SolidTradeServer.Data.Dtos.Warrant.Response;
@@ -26,6 +27,10 @@ namespace SolidTradeServer.MappingProfiles
             
             CreateMap<Portfolio, PortfolioResponseDto>();
             CreateMap<User, UserResponseDto>();
+
+            CreateMap<ProductImageRelation, GetProductImageResponseDto>()
+                .ForMember(dest => dest.RedirectUrl,
+                    opt => opt.MapFrom(src => src.CorrespondingImageUrl));
         }
     }
 }

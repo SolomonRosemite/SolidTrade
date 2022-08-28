@@ -9,7 +9,5 @@ namespace SolidTradeServer.Data.Dtos.Portfolio.Request
         
         [RequiredIf(nameof(UserId), null)]
         public int? PortfolioId { get; init; }
-
-        public bool IncludeOngoingPositions { get; init; }
     }
 }

@@ -14,6 +14,6 @@ namespace SolidTradeServer.Data.Dtos.OngoingKnockout.Response
         
         public OngoingKnockoutPositionResponseDto CurrentKnockoutPosition { get; set; }
         public decimal Price { get; set; }
-        public int NumberOfShares { get; set; }
+        public decimal NumberOfShares { get; set; }
     }
 }

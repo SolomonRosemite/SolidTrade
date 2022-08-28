@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using SolidTradeServer.Data.Entities.Common;
 
 namespace SolidTradeServer.Data.Entities
@@ -8,7 +9,10 @@ namespace SolidTradeServer.Data.Entities
         public int UserId { get; set; }
         public User User { get; set; }
         
+        [Required]
         public decimal Cash { get; set; }
+        
+        [Required]
         public decimal InitialCash { get; set; }
         
         public ICollection<StockPosition> StockPositions { get; set; }

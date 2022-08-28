@@ -1,25 +1,31 @@
 using System;
+using System.Linq;
+using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 using FirebaseAdmin;
 using Google.Apis.Auth.OAuth2;
-using Google.Cloud.Firestore;
 using Hangfire;
 using Hangfire.Dashboard.BasicAuthorization;
+using Hangfire.Dashboard.Resources;
 using Hangfire.MemoryStorage;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Newtonsoft.Json;
 using Serilog;
+using SolidTradeServer.Common;
 using SolidTradeServer.Data.Common;
 using SolidTradeServer.Data.Models.Converters;
 using SolidTradeServer.Data.Models.Errors;
+using SolidTradeServer.Data.Models.Errors.Common;
 using SolidTradeServer.Filters;
 using SolidTradeServer.Services;
 using SolidTradeServer.Services.Cache;
@@ -55,7 +61,9 @@ namespace SolidTradeServer
             services.AddSingleton<ICacheService, CacheService>();
             services.AddSingleton<RemoveKnockedOutProductsJobsService>();
             services.AddSingleton<RemoveOngoingExpiredTradeJobsService>();
+            services.AddSingleton<CheckAndPerformStockSplitJobsService>();
             services.AddSingleton<RemoveExpiredWarrantProductsJobsService>();
+            services.AddSingleton<RemoveUnusedProductImageRelationsJobsService>();
 
             services.AddTransient<UserService>();
             services.AddTransient<StockService>();
@@ -63,6 +71,7 @@ namespace SolidTradeServer
             services.AddTransient<KnockoutService>();
             services.AddTransient<PortfolioService>();
             services.AddTransient<NotificationService>();
+            services.AddTransient<ProductImageService>();
             services.AddTransient<OngoingWarrantService>();
             services.AddTransient<AuthenticationService>();
             services.AddTransient<OngoingKnockoutService>();
@@ -76,9 +85,19 @@ namespace SolidTradeServer
             }).AddJsonOptions(options =>
             {
                 options.JsonSerializerOptions.ReadCommentHandling = JsonCommentHandling.Skip;
+                options.JsonSerializerOptions.Converters.Add(new DecimalJsonConverter());
                 options.JsonSerializerOptions.Converters.Add(new StringRemoveWhitespaceConverter());
                 options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter(null, false));
             });
+            
+            services.Configure<ApiBehaviorOptions>(apiBehaviorOptions =>
+                apiBehaviorOptions.InvalidModelStateResponseFactory = 
+                    actionContext => new BadRequestObjectResult(new InvalidModelState
+                    {
+                        Title = "Validation error",
+                        Message = "Something went wrong validating request.",
+                        UserFriendlyMessage = Shared.GetUserFriendlyValidationError(actionContext),
+                    }));
 
             services.AddHangfire(config =>
                 config.SetDataCompatibilityLevel(CompatibilityLevel.Version_170)
@@ -90,13 +109,29 @@ namespace SolidTradeServer
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
-        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IRecurringJobManager recurringJobManager, IServiceProvider serviceProvider, ILogger logger)
+        public void Configure(IApplicationBuilder app, IWebHostEnvironment env, IRecurringJobManager recurringJobManager, IServiceProvider serviceProvider, ILogger logger, DbSolidTrade context)
         {
+            context.Database.EnsureCreated();
+            
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
             }
-
+            
+            // Enable cors
+            app.Use((httpContext, next) =>
+            {
+                httpContext.Response.Headers.Add("Access-Control-Allow-Origin", "*");
+                httpContext.Response.Headers.Add("Access-Control-Allow-Headers", "*");
+                httpContext.Response.Headers.Add("Access-Control-Allow-Methods", "*");
+            
+                if (httpContext.Request.Method != "OPTIONS")
+                    return next();
+            
+                httpContext.Response.StatusCode = 204;
+                return Task.CompletedTask;
+            });
+            
             app.UseRouting();
 
             app.UseExceptionHandler(a => a.Run(async httpContext =>
@@ -122,8 +157,9 @@ namespace SolidTradeServer
             var filter = new BasicAuthAuthorizationFilter(
                 new BasicAuthAuthorizationFilterOptions
                 {
-                    // Require secure connection for dashboard
-                    RequireSsl = true,
+                    // Because we are using nginx as a reverse proxy, ssl will not be required
+                    RequireSsl = false,
+                    SslRedirect = false,
                     // Case sensitive login checking
                     LoginCaseSensitive = true,
                     Users = new[]
@@ -155,10 +191,23 @@ namespace SolidTradeServer
 
             if (removeExpiredWarrantProductsJobsService is null)
                 throw new Exception("The service RemoveExpiredWarrantProductsJobsService could not be provided.");
+
+            var removeUnusedProductImageRelationsJobsService = serviceProvider.GetService<RemoveUnusedProductImageRelationsJobsService>();
+
+            if (removeUnusedProductImageRelationsJobsService is null)
+                throw new Exception("The service RemoveUnusedProductImageRelationsJobsService could not be provided.");
+
+            var checkAndPerformStockSplitJobsService = serviceProvider.GetService<CheckAndPerformStockSplitJobsService>();
+
+            if (checkAndPerformStockSplitJobsService is null)
+                throw new Exception("The service CheckAndPerformStockSplitJobsService could not be provided.");
             
             recurringJobManager.AddOrUpdate("Remove Ongoing expired trades", () => removeOngoingExpiredTradeJobsService.StartAsync(), Cron.Daily);
             recurringJobManager.AddOrUpdate("Remove Expired warrants", () => removeExpiredWarrantProductsJobsService.StartAsync(), Cron.Weekly(DayOfWeek.Sunday));
             recurringJobManager.AddOrUpdate("Remove Knocked out products", () => removeKnockedOutProductsJobsService.StartAsync(), Cron.Weekly(DayOfWeek.Sunday));
+            recurringJobManager.AddOrUpdate("Check and perform stock splits", () => checkAndPerformStockSplitJobsService.StartAsync(), Cron.Daily);
+            recurringJobManager.AddOrUpdate("Remove unused product images relations",
+                () => removeUnusedProductImageRelationsJobsService.StartAsync(), Cron.Weekly(DayOfWeek.Sunday));
             
             // Insures the trade republic service is being instantiated at the beginning of the application.
             app.ApplicationServices.GetService<TradeRepublicApiService>();
@@ -167,9 +216,6 @@ namespace SolidTradeServer
             {
                 Credential = GoogleCredential.FromFile(Configuration["FirebaseCredentials"]),
             });
-            
-            Environment.SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", Configuration["FirebaseCredentials"]);
-            OngoingProductsService.Firestore = FirestoreDb.Create(Configuration["FirebaseProjectId"]);
         }
     }
 }

@@ -44,3 +44,12 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Credentials
+/assets/config
+google-services.json
+credentials.js
+firebase-messaging-sw.js
+
+# Generated files
+mapper.g.dart

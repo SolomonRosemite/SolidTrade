@@ -15,4 +15,5 @@ namespace SolidTradeServer.Data.Models.Errors
     public class TradeFailed : BaseErrorModel { }
     public class InsufficientFounds : BaseErrorModel { }
     public class StockMarketClosed : BaseErrorModel { }
+    public class InvalidModelState : BaseErrorModel { }
 }

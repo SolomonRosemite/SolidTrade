@@ -18,16 +18,14 @@ namespace SolidTradeServer.Data.Models.Annotations
             {
                 if (file.Length > _maxFileSize)
                 {
-                    return new ValidationResult(GetErrorMessage());
+                    return new ValidationResult(GetErrorMessage(file.Length));
                 }
             }
 
             return ValidationResult.Success;
         }
 
-        private string GetErrorMessage()
-        {
-            return $"Maximum allowed file size is {_maxFileSize / 1000000} megabytes.";
-        }
+        private string GetErrorMessage(long fileSize)
+            => $"Maximum allowed file size is {_maxFileSize / 1000000} megabytes. But uploaded file size was {((float) fileSize / 1000000):0.00} megabytes.";
     }
 }

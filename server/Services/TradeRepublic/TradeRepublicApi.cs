@@ -43,7 +43,9 @@ namespace SolidTradeServer.Services.TradeRepublic
             {
                 _logger.Information("Connected to Trade republic api");
                 _webSocket.Send(configuration["TradeRepublic:InitialConnectString"]);
-                Task.Run(async () => await RegisterAllOngoingPosition());
+
+                if (!_isReconnect)
+                    Task.Run(async () => await RegisterAllOngoingPosition());
             };
 
             _webSocket.OnClose += (_, _) =>
@@ -204,12 +206,34 @@ namespace SolidTradeServer.Services.TradeRepublic
                 var ids = results.Select(o => o.AsT0);
 
                 for (int i = 0; i < ongoingWarrantPositions.Count; i++)
-                    AddOngoingRequest(ongoingWarrantPositions[i].Isin + "." + ids
-                        .First(p => p.Isin == ongoingWarrantPositions[i].Isin).ExchangeIds.First(), PositionType.Warrant, ongoingWarrantPositions[i].Id);
+                {
+                    var productInfo = ids.First(p => p.Isin == ongoingWarrantPositions[i].Isin);
+                    
+                    if (productInfo.Active.HasValue && !productInfo.Active.Value)
+                    {
+                        _logger.Information(
+                            "Ongoing warrant with id {@Id} and isin {@Isin} is not active anymore and wont be added to ongoing requests",
+                            ongoingWarrantPositions[i].Id, ongoingWarrantPositions[i].Isin);
+                        continue;
+                    }
+                    
+                    AddOngoingRequest(ongoingWarrantPositions[i].Isin + "." + productInfo.ExchangeIds.First(), PositionType.Warrant, ongoingWarrantPositions[i].Id);
+                }
 
                 for (int i = 0; i < ongoingKnockoutPositions.Count; i++)
-                    AddOngoingRequest(ongoingKnockoutPositions[i].Isin + "." + ids
-                        .First(p => p.Isin == ongoingKnockoutPositions[i].Isin).ExchangeIds.First(), PositionType.Knockout, ongoingKnockoutPositions[i].Id);
+                {
+                    var productInfo = ids.First(p => p.Isin == ongoingKnockoutPositions[i].Isin);
+                    
+                    if (productInfo.Active.HasValue && !productInfo.Active.Value)
+                    {
+                        _logger.Information(
+                            "Ongoing knockout with id {@Id} and isin {@Isin} is not active anymore and wont be added to ongoing requests",
+                            ongoingKnockoutPositions[i].Id, ongoingKnockoutPositions[i].Isin);
+                        continue;
+                    }
+
+                    AddOngoingRequest(ongoingKnockoutPositions[i].Isin + "." + productInfo.ExchangeIds.First(), PositionType.Knockout, ongoingKnockoutPositions[i].Id);
+                }
             }
             catch (Exception e)
             {

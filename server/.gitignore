@@ -37,5 +37,5 @@ msbuild.wrn
 .vs/
 
 # Credentials
-/appsettings.credentials.json
-/solid-trade-firebase-credentials.json
+Configuration/appsettings.credentials.json
+Configuration/solid-trade-firebase-credentials.json

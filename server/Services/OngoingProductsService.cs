@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Google.Cloud.Firestore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using OneOf;
@@ -20,8 +19,6 @@ namespace SolidTradeServer.Services
 {
     public class OngoingProductsService
     {
-        public static FirestoreDb Firestore { get; set; }
-
         private static readonly ILogger _logger = Log.Logger;
         private readonly NotificationService _notificationService;
         private readonly IServiceScopeFactory _scopeFactory;
@@ -244,7 +241,6 @@ namespace SolidTradeServer.Services
 
                 database.OngoingWarrantPositions.Remove(ongoingProduct);
                 
-                // Todo: Also send update via firestore.
                 _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position filled", $"Your {GetOrderName(ongoingProduct.Type)} order was executed.");
 
                 if (isBuyOrSell is BuyOrSell.Buy)
@@ -480,7 +476,6 @@ namespace SolidTradeServer.Services
 
                 database.OngoingKnockoutPositions.Remove(ongoingProduct);
                 
-                // Todo: Also send update via firestore.
                 _notificationService.SendNotification(ongoingProduct.Portfolio.UserId, "", "Position filled", $"Your {GetOrderName(ongoingProduct.Type)} order was executed.");
 
                 if (isBuyOrSell is BuyOrSell.Buy)

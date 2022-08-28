@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  ngrok:
+    image: shkoliar/ngrok:latest
+    ports:
+      - ${NGROK_PORT}:4551
+    links:
+      - api
+    environment:
+      AUTH_TOKEN: ${NGROK_AUTH_TOKEN}
+      REGION: ${NGROK_REGION}
+      DOMAIN: ${NGROK_DOMAIN}
+      PORT: 80
+    depends_on:
+        - api
+  
+  api:
+    build: server
+    restart: always
+    environment:
+      ENVIRONMENT: ${API_ENVIRONMENT}
+    ports:
+      - ${API_PORT}:80
+    depends_on:
+      - db
+    volumes:
+      - ./server/Configuration:/app/config
+  
+  db:
+    image: mcr.microsoft.com/mssql/server
+    ports:
+      - ${DB_PORT}:1433
+    volumes:
+      - solidtrade:/var/opt/mssql/data
+    environment:
+      SA_PASSWORD: ${DB_SA_PASSWORD}
+      ACCEPT_EULA: "Y"
+
+volumes:
+  solidtrade: 
