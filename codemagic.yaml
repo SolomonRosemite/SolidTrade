@@ -65,7 +65,7 @@ workflows:
     environment:
       groups:
         - credentials-stable
-      flutter: 2.8.1
+      flutter: 2.10.2
       xcode: latest
       cocoapods: default
     triggering:
